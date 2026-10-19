@@ -1,10 +1,10 @@
 # SPEX cycle semantics (normative)
 
-Status: **version 1 (release candidate)**, 2026-10-19. Supersedes draft v0 (seeded from proposal rev 2.1).
+Status: **version 1 (final)**, 2026-10-19. Supersedes draft v0 (seeded from proposal rev 2.1). The owner approved the FROZEN\* refinements (S20, S21, S25, S28, S31, S34, S35) on 2026-10-19.
 
 Rule tags:
 - **FROZEN**: change only through `DECISIONS.md`.
-- **FROZEN\*** : a FROZEN rule of v0 that v1 makes exact in a way that changes or extends its v0 wording. Each one names its decision (S-id). **These need the owner's approval before v1 is final**; until then they have status Proposed in `DECISIONS.md`.
+- **FROZEN\*** : a FROZEN rule of v0 that v1 made exact in a way that changed or extended its v0 wording. Each one names its decision (S-id); all were approved by the owner on 2026-10-19 and are now FROZEN like the rest.
 - **DECIDED**: a v0 OPEN item, decided in v1 (S-id given).
 - **DEFERRED (date)**: still open, not needed before that date.
 - **DERIVED**: a consequence of the rules above it; stated so tests can check it. If a DERIVED statement and a rule disagree, the rule wins and the DERIVED text is a bug.
@@ -387,7 +387,7 @@ The DSL detail of how one spec yields the observe edge for STOP while Drive rele
 
 ## 14. Changes from v0
 
-| v0 item | v1 | S-id | needs approval |
+| v0 item | v1 | S-id | changed FROZEN wording (approved 2026-10-19) |
 |---|---|---|---|
 | §1 OPEN prescaler | none in v1, revisit by 2026-11-14 (R1.3) | S18 | no |
 | §1 OPEN overflow | saturate (R1.4) | S19 | no |
