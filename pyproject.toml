@@ -1,0 +1,9 @@
+[project]
+name = "spex"
+version = "0.0.1"
+description = "SPEX: a chip that executes timed-automaton protocol specifications (Jane Street protocol emulator ASIC entry)"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

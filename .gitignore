@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+runs/
+sim_build/
+results.xml
+*.vcd
+*.fst
+experiments/area_probe/lib/
+experiments/area_probe/*.log
+formal/*/
+!formal/*.sby
+tchecker/build/
+.pytest_cache/
