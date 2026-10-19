@@ -12,3 +12,4 @@ formal/*/
 !formal/*.sby
 tchecker/build/
 .pytest_cache/
+scripts/mutate_model_results.json

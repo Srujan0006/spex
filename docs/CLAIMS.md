@@ -13,3 +13,4 @@ Every headline claim made in the README, the datasheet or the write-up gets a ro
 | ID | Claim | Evidence (command / file / CI run) | Status | Blind spot |
 |---|---|---|---|---|
 | C1 | One SPEX engine is about 0.158 mm² of standard cells before layout | `experiments/area_probe/` with `yowasp-yosys -s synth_v2.ys` | estimated (sketch, not the design) | no place and route; tables in flops |
+| C2 | The Python reference interpreter implements SEMANTICS v1: every worked example (§13) reproduces with the document's exact cycle numbers | `python3 -B -m pytest -q tests/model` (51 passed, 2026-10-19); `python3 -B scripts/mutate_model.py` (28/28 planted interpreter bugs killed) | tested (51 cases, 28 mutants) | the examples and rule tests were written by the same author (AI) as the model, from the same document; independent oracles arrive in step 4, RTL lockstep later |
