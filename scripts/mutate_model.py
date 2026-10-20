@@ -1,4 +1,4 @@
-"""Mutation run for the reference interpreter: each mutant in tests/model/mutants.py must make tests/model fail.
+"""Mutation run for the reference interpreter and the compiler: each mutant in tests/model/mutants.py must make tests/model fail.
     python3 -B scripts/mutate_model.py          (writes scripts/mutate_model_results.json)"""
 import concurrent.futures as cf
 import json
@@ -14,13 +14,13 @@ from mutants import MUTANTS  # noqa: E402
 
 
 def run(i):
-    name, rule, old, new, killer = MUTANTS[i]
+    f, name, rule, old, new, killer = MUTANTS[i]
     with tempfile.TemporaryDirectory() as d:
         for sub in ("spex", "tests"):
             shutil.copytree(os.path.join(ROOT, sub), os.path.join(d, sub),
                             ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copy(os.path.join(ROOT, "pyproject.toml"), d)
-        p = os.path.join(d, "spex", "refsim", "model.py")
+        p = os.path.join(d, f)
         src = open(p).read()
         assert src.count(old) == 1, name
         open(p, "w").write(src.replace(old, new))
@@ -28,7 +28,7 @@ def run(i):
                             "--deselect", "tests/model/test_mutants_wellformed.py"],
                            cwd=d, capture_output=True, text=True)
         failed = [l for l in r.stdout.splitlines() if l.startswith("FAILED")]
-    return {"mutant": name, "rule": rule, "killed": r.returncode != 0, "first_failure": failed[:1]}
+    return {"file": f, "mutant": name, "rule": rule, "killed": r.returncode != 0, "first_failure": failed[:1]}
 
 
 def main():

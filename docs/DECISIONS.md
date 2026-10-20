@@ -41,3 +41,5 @@ To change an approved decision, add a new entry that supersedes it; do not edit 
 | S33 | Datapath v1: 8-bit SR, saturating bitcnt, op set of R2.10, data guard code 7 = SR_NOMATCH | Approved | 2026-10-19 | R2.6, R2.10 |
 | S34 | EDGE pin mode = pattern holds and one of its pins has a pending change | Approved (owner, 2026-10-19) | 2026-10-19 | R2.4 |
 | S35 | Reaction latency is L + d with d ∈ {0,1,2} (+2 per extra carry); v0's "L or L+E" missed carry-over | Approved (owner, 2026-10-19) | 2026-10-19 | R4.4, example 13.1 a3 |
+| S36 | Fan-out > 4 after role expansion is a compile error with the chain-split cost reported; automatic chain split not implemented until a spec needs it | Approved | 2026-10-20 | R7.12a |
+| S37 | Compiler details within R7: reactive emits are observed by their trigger; data pins are visible in OD mode too; unreachable locations warned and skipped in time-base inference; engines start in cycle ≥ 3 (R12.7) | Approved | 2026-10-20 | R7.4, R7.12b, R12.7 |

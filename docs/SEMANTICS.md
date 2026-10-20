@@ -187,6 +187,8 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   - **visible, one data pin d** (value from SR) → `e1a`, `e1b`: as e1 with `d = 0` and `d = 1`. More than one data pin per edge is a compile error.
   - **silent completion** `e2` (*otherwise*, R7.9), only if the edge resets no clock: `LEVEL {constant visible pins, values}` (or no pin guard if only a data pin is visible), `WIN [hi, hi]`, same target and mapped actions. It fires when the window closes with no observed change, which is what an emit of the value already on the line looks like.
   - **no visible pin** → an internal edge with `GE lo`.
+  - **reactive emit** (an EDGE trigger, R7.2) → an observe edge on its trigger pattern (and window, as WIN); its writes are dropped. The written pins' later change is not judged by this edge; a spec that wants it judged writes an observe edge for it (S37).
+  - A data pin counts as visible in either write mode: an OD data bit 0 pulls low and 1 releases, and while one side transmits nobody else drives the line (S37).
   - **Visibility rule (compile error otherwise):** an observed emit that resets a clock must have a visible pin and must not need e2. The spec asserts that the line changes. If it does not, the observer reports TIMEOUT or UNEXPECTED, which is a true finding. Reason: a silent emit's instant is unknowable, so a clock reset on it would be guessed.
 - **R7.5 DECIDED (S30). Observe and internal edges** are compiled unchanged in every role, apart from R7.7.
 - **R7.6 DECIDED (S30). Watch masks.** In Drive as S, pins that S drives push-pull anywhere in the spec are removed from every watch mask (the chip does not check itself). Open-drain pins stay watched as written.
@@ -209,6 +211,8 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 
   Anything else is rejected, with the two edges named. The check is sufficient, not complete: it may reject a deterministic spec, never accept a nondeterministic one.
 - **R7.12 DECIDED. Other compiler checks** (each has a test that a bad spec is rejected): fan-out ≤ 4 after the R7.4 expansion, or a chain split listed with its cost (each hop adds E + 1 = 2 cycles and the extra latency of R4.4); R4.5 bounds; the visibility rule; time-base conflicts; nom ∈ [lo, hi]; halt (R3.4); resync location (R7.7); reserved ops; one data pin per emit.
+- **R7.12a DECIDED (S36).** Fan-out above 4 after expansion is a compile error that names the location and the cost a chain split would have (E + 1 = 2 cycles per hop). Automatic chain splitting is not implemented; revisit if a protocol spec needs it (S15 count, week 2).
+- **R7.12b DECIDED (S37).** Locations unreachable from the initial and resync locations are listed as warnings and excluded from time-base inference.
 - **R7.13 DECIDED.** The compiler listing reports, per location: edges after expansion, locations that can fire in their first evaluation cycle, and the latency bound of R4.4.
 
 ## 8. Timing policies (Drive / Stress)
@@ -275,6 +279,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 - **R12.4 DECIDED.** Host operation `START(engine)` in cycle n, on a stopped or halted engine: in `S_{n+1}` the engine is `RUNNING`, `loc = initial`, `phase = ENTRY`, every clock = 1 (0 at cycle n), pending changes and events cleared. `STOP(engine)`: `state' = STOPPED` and `oe' = 0` (all drives released). Other host operations (push TX byte, push token, pop RX byte, set policy, write seed, read coverage/trace) take effect in `S_{n+1}`; a FIFO push and an engine pop on the same FIFO in one cycle are both applied (the pop sees the old head).
 - **R12.5 DEFERRED (2026-11-14).** Host SPI frame format. It will be written as a SPEX spec (dogfooding, proposal §6.4). Until then the model's host operations are API calls, one per `step`.
 - **R12.6 DECIDED (S32). Pins and engines.** Engine k sees and drives the chip pins through a rotation by its `pin base` b: engine pin i ↔ chip pin `(i + b) mod 8`. Chip output: `oe[p] = oe0[p] OR oe1[p]`; `out[p] = out1[p] if oe1[p] else out0[p]` (engine 1 wins a conflict, as DTC SM1).
+- **R12.7 DERIVED.** The synchroniser flops reset to 0 (R4.1), so a pin that is high after reset shows a change on the pin bus in cycle 2. An engine started (R12.4) in cycle 0 or 1 judges that change and, if the pin is watched, raises UNEXPECTED. Start engines in cycle 3 or later; the host library enforces this. (Found by the toy-UART duality test, 2026-10-20.)
 
 ## 13. Worked examples
 

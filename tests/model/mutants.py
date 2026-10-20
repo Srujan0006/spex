@@ -1,7 +1,11 @@
-"""Planted bugs in spex/refsim/model.py. Each must make tests/model fail (run: python3 -B scripts/mutate_model.py).
+"""Planted bugs in the model and the compiler. Each must make tests/model fail (run: python3 -B scripts/mutate_model.py).
 
-(name, rule broken, original text, mutated text, test expected to kill it; the results file records the first actual failure)"""
-MUTANTS = [
+(file, name, rule broken, original text, mutated text, test expected to kill it); the results file records the
+first actual failure."""
+MODEL = "spex/refsim/model.py"
+COMPILER = "spex/compiler/__init__.py"
+
+_MODEL_MUTANTS = [
     ("reset ignores trigger age", "R1.6", "ne.x[c] = 1 + a", "ne.x[c] = 1", "test_rules::test_R1_6"),
     ("clock guard on current x, not trigger instant", "R2.5/S21", "v = max(ce.x[w.clock] - a, 0)",
      "v = ce.x[w.clock]", "test_semantics_examples::test_example_c6"),
@@ -57,3 +61,38 @@ MUTANTS = [
     ("violation does not count", "R6.3", "ne.viol_count = min(ne.viol_count + 1, 0xFFFF)", "pass",
      "test_rules::test_R6_5"),
 ]
+
+_COMPILER_MUTANTS = [
+    ("observation delay 2, not 3", "R7.7", "D_OBS = 3 ", "D_OBS = 2 ", "test_compiler::test_R7_7"),
+    ("observed SHOUT not mapped to SHIN", "R7.4", '"SHOUT": "SHIN", ', "", "test_compiler::test_toy_uart_drive_passes_check"),
+    ("no silent completion", "R7.4", "if e.window is not None and not e.reset:", "if False:",
+     "test_compiler::test_check_transform_of_toy_uart"),
+    ("silent completion at lo", "R7.4", 'ce.ck, ce.clock, ce.lo, ce.hi, ce.nom = "WIN", spec.clocks.index(e.window.clock), e.window.hi,',
+     'ce.ck, ce.clock, ce.lo, ce.hi, ce.nom = "WIN", spec.clocks.index(e.window.clock), e.window.lo,',
+     "test_compiler::test_check_transform_of_toy_uart"),
+    ("own pins stay watched in Drive", "R7.6", "unwatch |= spec.mask(e.writes)", "pass",
+     "test_compiler::test_drive_transform_unwatches_own_pins"),
+    ("otherwise edges not moved last", "R7.9",
+     "edges[l.name] = [e for e in es if not e.otherwise] + [e for e in es if e.otherwise]", "edges[l.name] = es",
+     "test_compiler::test_otherwise_edges_go_last"),
+    ("no age widening in the determinism check", "R7.11", "e.hi + (MAX_AGE if e.pmask else 0)", "e.hi",
+     "test_compiler::test_accept_disjoint_by_window_age_widening_and_data"),
+    ("E+3 bound dropped", "R4.5", "(MAX_AGE if any(", "(0 if any(", "test_compiler::test_reject_lo_below_E_plus_3"),
+    ("fan-out limit 5", "R2.2", "if len(es) > T.NUM_SLOTS:", "if len(es) > 5:", "test_compiler::test_reject_fan_out_over_4"),
+    ("silent emit may reset", "R7.4", "if e.reset and dpin is not None:", "if False:",
+     "test_compiler::test_reject_reset_on_silent_or_invisible_emit"),
+    ("TXF_NE kept when observed", "R7.4", 'if g is None or (not private_ok and g.kind == "TXF_NE"):', "if g is None:",
+     "test_compiler::test_check_transform_of_toy_uart"),
+    ("token pop inverted", "R7.10", 'ce.dk, ce.dval, ce.pop = "TOKEN", e.token, int(not e.peek)',
+     'ce.dk, ce.dval, ce.pop = "TOKEN", e.token, int(e.peek)', "test_compiler::test_otherwise_edges_go_last_and_token_pop_peek"),
+    ("emit on an O-based clock not shifted", "R7.7", "shift = -D_OBS", "shift = 0",
+     "test_compiler::test_R7_7_own_emit_after_observed_event"),
+    ("invariant not shifted", "R7.7", "inv_shift[l.name] = D_OBS if b == \"E\" else 0", "inv_shift[l.name] = 0",
+     "test_compiler::test_R7_7_observe_after_own_emit"),
+    ("choice/determinism check skipped", "R7.11", "if b.otherwise or _equivalent(a, b) or _disjoint(a, b):",
+     "if True:", "test_compiler::test_reject_not_observably_deterministic"),
+    ("time-base conflict accepted", "R7.7", "if len(b) != 1 or not b <= {\"E\", \"O\"}:", "if not b:",
+     "test_compiler::test_reject_time_base_conflict"),
+]
+
+MUTANTS = [(MODEL,) + m for m in _MODEL_MUTANTS] + [(COMPILER,) + m for m in _COMPILER_MUTANTS]
