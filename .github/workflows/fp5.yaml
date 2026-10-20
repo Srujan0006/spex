@@ -1,0 +1,38 @@
+# SPEX week-1 floorplan experiment (Gate A condition 2): harden experiments/macro_floorplan/fp5 at 8x4 and run the
+# Tiny Tapeout precheck. The experiment's info.yaml, src/ and LibreLane plugin replace the root ones in the runner only.
+name: fp5
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "experiments/macro_floorplan/fp5/**"
+      - ".github/workflows/fp5.yaml"
+
+jobs:
+  gds:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Use the fp5 experiment as the project
+        run: |
+          rm -rf src
+          cp -r experiments/macro_floorplan/fp5/src src
+          cp experiments/macro_floorplan/fp5/info.yaml info.yaml
+          cp experiments/macro_floorplan/fp5/librelane_plugin_spex_pdn.py experiments/macro_floorplan/fp5/odb_stripes.py .
+
+      - name: Build GDS
+        uses: TinyTapeout/tt-gds-action@ihp-cmos5l
+        with:
+          pdk: ihp-sg13cmos5l
+
+  precheck:
+    needs: gds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run Tiny Tapeout Precheck
+        uses: TinyTapeout/tt-gds-action/precheck@ihp-cmos5l

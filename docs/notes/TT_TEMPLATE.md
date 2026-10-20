@@ -21,5 +21,6 @@
 | `src/.gitkeep` | removed | `src/` now has template files |
 | `info.yaml` | title, author, description, clock_hz (48 MHz) filled in | the gds and docs workflows reject empty fields (CI run 39410242621) |
 | `docs/info.md` | placeholder sections replaced with a short description | the docs workflow rejects the template text |
+| `.github/workflows/gds.yaml` | `push` limited to `src/**`, `info.yaml` and the workflow itself | the 8x4 harden of the placeholder design costs hours of CI on every docs or model commit |
 
 Deferred: `top_module` stays `tt_um_example` (and `src/project.v` unchanged) until RTL starts; there is no SPEX RTL in this phase. Rename to `tt_um_srujan0006_spex` (or similar) together with `src/project.v` in the RTL phase.
