@@ -317,7 +317,7 @@ def test_s39_cond_silent_visible_shadow_dedupe():
     a = c.edges["A"][0]
     assert (a.pmask, a.pval) == (0b11, 0b10)                                  # SDA-like P low, cond Q high
     b = c.edges["B"]
-    assert len(b) == 1 and b[0].cls == "internal" and (b[0].lo, b[0].hi) == (20, 20) and b[0].op == "CLR"
+    assert len(b) == 1 and b[0].cls == "internal" and (b[0].lo, b[0].hi) == (21, 21) and b[0].op == "CLR"
     cc = c.edges["C"]
     assert [(e.pmask, e.pval, e.otherwise) for e in cc] == [(1, 1, False), (1, 1, True)]   # e1 + e2; no shadow
     d = compile_spec(s39_spec(), "drive", side="b")
@@ -327,7 +327,7 @@ def test_s39_cond_silent_visible_shadow_dedupe():
 def test_s39_policy_lo_clipped_with_warning():
     c = compile_spec(s39_spec(), "drive", side="a")
     b = c.edges["B"]
-    assert all(e.lo == 2 for e in b) and any("clipped" in w for w in c.warnings)
+    assert all(e.lo == 4 for e in b) and any("clipped" in w for w in c.warnings)   # echo dwell D + 1 (R7.6b)
 
 
 def test_s39_own_echo_unwatched_in_target():

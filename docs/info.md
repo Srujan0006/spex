@@ -9,12 +9,12 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+SPEX executes a protocol specification written as a timed automaton (locations, clocks, timing windows, pin events). One spec runs in four roles: Drive (plays one side), Check (monitors a bus and reports timing and sequence violations), Stress (drives at the edges of every timing window) and Cover (records transition coverage and timing margins). Status: pre-RTL; this tile currently holds the Tiny Tapeout example design.
 
 ## How to test
 
-Explain how to use your project
+The reference model and tests are in the repository: `python3 -B -m pytest -q`.
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+None yet.

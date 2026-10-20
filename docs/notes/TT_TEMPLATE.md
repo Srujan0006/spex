@@ -18,5 +18,7 @@
 |---|---|---|
 | `info.yaml` | `tiles: "1x1"` → `tiles: "6x4"` | largest size the official cmos5l tools support; 8x4 not yet official (above) |
 | `src/.gitkeep` | removed | `src/` now has template files |
+| `info.yaml` | title, author, description, clock_hz (48 MHz) filled in | the gds and docs workflows reject empty fields (CI run 39410242621) |
+| `docs/info.md` | placeholder sections replaced with a short description | the docs workflow rejects the template text |
 
 Deferred: `top_module` stays `tt_um_example` (and `src/project.v` unchanged) until RTL starts; there is no SPEX RTL in this phase. Rename to `tt_um_srujan0006_spex` (or similar) together with `src/project.v` in the RTL phase.

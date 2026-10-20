@@ -13,17 +13,22 @@ sys.path.insert(0, os.path.join(ROOT, "tests", "model"))
 from mutants import MUTANTS  # noqa: E402
 
 
+COPY = ("spex", "spec", "tests")
+
+
 def run(i):
-    f, name, rule, old, new, killer = MUTANTS[i]
+    """i = -1 runs an unmutated copy: it must pass, or the copy itself is broken (BUGS 16)."""
+    f, name, rule, old, new, killer = MUTANTS[i] if i >= 0 else (None, "(unmutated copy)", "-", "", "", "")
     with tempfile.TemporaryDirectory() as d:
-        for sub in ("spex", "tests"):
+        for sub in COPY:
             shutil.copytree(os.path.join(ROOT, sub), os.path.join(d, sub),
                             ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copy(os.path.join(ROOT, "pyproject.toml"), d)
-        p = os.path.join(d, f)
-        src = open(p).read()
-        assert src.count(old) == 1, name
-        open(p, "w").write(src.replace(old, new))
+        if f is not None:
+            p = os.path.join(d, f)
+            src = open(p).read()
+            assert src.count(old) == 1, name
+            open(p, "w").write(src.replace(old, new))
         r = subprocess.run([sys.executable, "-B", "-m", "pytest", "-x", "-q", "tests/model",
                             "--deselect", "tests/model/test_mutants_wellformed.py"],
                            cwd=d, capture_output=True, text=True)
@@ -36,6 +41,10 @@ def main():
                           capture_output=True, text=True)
     if base.returncode != 0:                       # a red baseline would "kill" every mutant
         print("baseline tests fail; fix them before the mutation run\n" + base.stdout[-2000:])
+        return 2
+    copy = run(-1)
+    if copy["killed"]:
+        print("the unmutated temporary copy fails; the mutation run would be meaningless:", copy["first_failure"])
         return 2
     with cf.ProcessPoolExecutor() as ex:
         results = list(ex.map(run, range(len(MUTANTS))))

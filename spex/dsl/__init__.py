@@ -259,3 +259,20 @@ class Spec:
         for p in pins:
             m |= 1 << self._pin(p)
         return m
+
+
+def scale_time(spec: Spec, k: int) -> Spec:
+    """A copy of `spec` with every window (lo, hi, nom) multiplied by k: the time-scaling metamorphic relation."""
+    import copy
+    if k < 1:
+        raise SpecError("k >= 1")
+    s = copy.deepcopy(spec)
+
+    def sc(w: Optional[Window]) -> Optional[Window]:
+        return None if w is None else Window(w.clock, w.lo * k, w.hi * k, w.nom * k)
+    for l in s.locs:
+        l.invariant = sc(l.invariant)
+    for e in s.edges:
+        e.window = sc(e.window)
+    s.name = f"{s.name}_x{k}"
+    return s

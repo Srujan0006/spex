@@ -199,6 +199,7 @@ def _observed(spec: Spec, e: SpecEdge, errs: List[str], data_pins) -> List[CEdge
     if e.silent:                                       # S39: judged only when the window closes
         ce = _common(spec, e, "observed silent emit", "internal")
         _win(spec, ce, "WIN", e.window)
+        ce.hi += 1                                    # a change at exactly hi is still judged here (R5.8)
         ce.lo = ce.nom = ce.hi
         _data(ce, e.data, False)
         _op(spec, ce, op, errs)
@@ -422,21 +423,23 @@ def _exactness(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str], warns
     incoming = {l.name: [] for l in spec.locs}
     for es in edges.values():
         for ce in es:
-            incoming[ce.dst.name].append((ce.reset, bool(ce.pmask)))
+            incoming[ce.dst.name].append((ce.reset, bool(ce.pmask), ce.cls == "own" and ce.wm != 0))
     full = (1 << nclk) - 1
-    incoming[spec.initial_loc.name].append((full, False))          # START (R12.4)
+    incoming[spec.initial_loc.name].append((full, False, False))   # START (R12.4)
     if spec.resync_loc is not None:
-        incoming[spec.resync_loc.name].append((full, False))       # resync (R6.5)
+        incoming[spec.resync_loc.name].append((full, False, False))  # resync (R6.5)
     for es in edges.values():
         for ce in es:
             if ce.ck not in ("GE", "POLICY", "WIN") or ce.pmask:
                 continue
             inc = incoming[ce.src.name]
-            if not inc or not all((r >> ce.clock) & 1 for r, _ in inc):
+            if not inc or not all((r >> ce.clock) & 1 for r, _, _ in inc):
                 warns.append(f"{ce.origin.label}: clock {spec.clocks[ce.clock]} not reset on every edge into "
                              f"{ce.src.name}; exact firing not checked (R4.5)")
                 continue
-            need = E_ENTRY + 1 + (MAX_AGE if any(pin and (r >> ce.clock) & 1 for r, pin in inc) else 0)
+            need = E_ENTRY + 1 + (MAX_AGE if any(pin and (r >> ce.clock) & 1 for r, pin, _ in inc) else 0)
+            if any(echo for _, _, echo in inc):          # S41: stay until the own echo has arrived (R7.6b)
+                need = max(need, D_OBS + 1)
             if ce.lo < need and ce.ck == "POLICY" and ce.hi >= need:          # S39: clip, do not reject
                 warns.append(f"{ce.origin.label}: earliest emit clipped from lo = {ce.lo} to {need}; the spec's "
                              f"lower edge cannot be reached exactly (R4.5)")

@@ -60,6 +60,12 @@ _MODEL_MUTANTS = [
      "test_rules::test_R2_6_data_guards"),
     ("PUSH_LOAD_PEEK drives the old SR", "R2.10/S38", "push()\n            load()\n            dbit = outbit(ne.sr)",
      "dbit = outbit(ne.sr)\n            push()\n            load()", "test_rules::test_R2_10_push_load_peek"),
+    ("random policy does not fold into the window", "R8.2", "if r > d:\n        r -= d + 1",
+     "if r > d:\n        r -= 0", "test_metamorphic::test_duality_uart (role duality)"),
+    ("GE guard is strict", "R2.5", "ck_ok = v >= w.lo", "ck_ok = v > w.lo",
+     "test_metamorphic::test_time_scaling_uart (time scaling)"),
+    ("output rotation in the wrong direction", "R12.6", "eout = rotl8(e.out, b)", "eout = rotr8(e.out, b)",
+     "test_metamorphic::test_permutation_uart_drive_on_engine1 (engine permutation)"),
     ("violation does not count", "R6.3", "ne.viol_count = min(ne.viol_count + 1, 0xFFFF)", "pass",
      "test_rules::test_R6_5"),
 ]
