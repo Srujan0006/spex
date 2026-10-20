@@ -354,10 +354,43 @@ def test_table_usage_report():
     c = compile_spec(i2c("standard"), "drive", side="ctl")
     u = c.usage
     assert (u["locations"], u["windows"], u["constants"], u["actions"]) == ((37, 64), (9, 16), (8, 8), (15, 16))
-    assert u["max_clock_value"] == 455 and "table use: locations 37/64" in c.listing
+    assert u["max_clock_value"] == 452 and "table use: locations 37/64" in c.listing   # W_REL hi 226 + 226
     s = compile_spec(spi(0), "check")
     assert s.usage["max_clock_value"] == 12                                  # XMAX = "no upper bound", not counted
     s2 = Spec("t", sides=["a"], pins={"P": 0}, clocks=["x"])
     A, B = s2.loc("A", watch=["P"]), s2.loc("B", halt=True)
     s2.observe(A, B, {"P": 1})
     assert compile_spec(s2, "check").usage["windows"] == (0, 16)            # no windows: the placeholder is not use
+
+
+def test_reject_guard_above_16_bits():
+    """S45 / R7.12f: a 300-baud UART bit (160,000 cycles) needs the counted loop."""
+    from spec.uart_8n1 import uart_8n1
+    with pytest.raises(CompileError) as ei:
+        compile_spec(uart_8n1(160000, 3200), "check")
+    assert any("16-bit clock" in e and "counted loop" in e for e in ei.value.errors)
+    compile_spec(uart_8n1(5000, 100), "check")                               # 9600 Bd fits
+
+
+def test_reject_more_than_8_policy_windows():
+    s = Spec("t", sides=["a"], pins={"P": 0}, clocks=["x"])
+    locs = [s.loc(f"L{i}") for i in range(10)] + [s.loc("H", halt=True)]
+    for i in range(9):
+        s.emit(locs[i], locs[i + 1], "a", {"P": i % 2}, at=s.window("x", 10 + i, 20 + i), reset=["x"])
+    s.internal(locs[9], locs[10], after=s.window("x", 5, 5))
+    rejects(s, "drive", side="a", match="nominal table has 8")
+
+
+def test_policy_windows_take_slots_0_to_7_with_their_nominal():
+    from spec.i2c import i2c
+    c = compile_spec(i2c("standard"), "drive", side="ctl")
+    from spex.refsim import unpack_edge
+    pol = {unpack_edge(w).window for w in c.image.edges if w and unpack_edge(w).valid and unpack_edge(w).ck == 3}
+    assert pol and max(pol) < 8 and all(c.image.noms[i] is not None for i in pol)
+
+
+def test_observation_delay_is_a_parameter():
+    """S48: D is a compiler parameter (default 3)."""
+    for d, expect in ((3, (8, 8)), (5, (10, 10))):
+        c = compile_spec(resp_spec(), "drive", side="a", d_obs=d)
+        assert (c.edges["A1"][0].lo, c.edges["A1"][0].hi) == expect

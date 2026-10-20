@@ -10,6 +10,7 @@ These files have not been simulated. They exist only to size the engine idea on 
 | `ta_engine_v4.v` (`s4.ys`) | SEMANTICS v1 table formats (S28, S33, S42): 16 windows × {clk, lo, hi, nom}, 7 patterns, 8 constants, 16 actions, **64 location words in flops**, 20-bit clocks | 14,836 | **337,315 µm²** | 2,972 |
 | `ta_engine_v4b.v` (`s4b.ys`) | v4 with the location word read from a 64x16 macro (port `loc_word_in`) | 12,334 | **268,888 µm²** | 2,134 |
 | `ta_engine_v4b.v` (`s4c.ys`, `CW=16`) | v4b with 16-bit clocks (no prescaler modelled) | 10,780 | **235,516 µm²** | 1,910 |
+| `ta_engine_lite.v` (`slite.ys`, `CW=16`) | Check-only engine (S46): 8 windows, 8 actions, no POLICY times, LFSR, TX FIFO, tokens or drive; location word from a 64x16 macro | 5,101 | **103,667 µm²** | — (seq. 39,975 µm², 38.6 %) |
 
 All values are [Measured] with `yowasp-yosys` 0.70: `synth -flatten; dfflibmap; abc; stat` against `sg13cmos5l_stdcell_typ_1p20V_25C.lib`, typical corner, pre-layout, macros excluded.
 
@@ -34,3 +35,5 @@ Known simplifications of the v4 sketches (they make the numbers slightly low, no
 Yosys in the WebAssembly build (`yowasp-yosys`) could not open the liberty file through the relative path `lib/...` in
 this environment, although it read the Verilog that way; the measurement used the same scripts with the liberty path
 made absolute.
+
+`ta_engine_lite.v` (added 2026-10-20) still carries the v4 header comment; the module is the Check-only variant described in the table. Measured the same way (absolute liberty path).

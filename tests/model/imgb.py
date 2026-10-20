@@ -13,7 +13,7 @@ class ImageBuilder:
     def __init__(self):
         self.locs: Dict[int, Loc] = {}
         self.edges: Dict[int, List[Edge]] = {}
-        self.windows: List[Window] = []
+        self.windows: List[tuple] = []
         self.patterns: List[Pattern] = []
         self.consts: List[int] = []
         self.actions: List[Action] = [Action()]          # entry 0 = empty action (R11.2)
@@ -33,7 +33,7 @@ class ImageBuilder:
     def _win(self, w) -> int:
         c, lo, hi = w[:3]
         nom = w[3] if len(w) > 3 else lo
-        return self._idx(self.windows, Window(c, lo, hi, nom), 16)
+        return self._idx(self.windows, (c, lo, hi, nom), 16)        # nom goes to the nominal table (S44)
 
     def edge(self, src: int, target: int, pat: Optional[tuple] = None, ck: int = CK_NONE,
              win: Optional[tuple] = None, dk: int = DG_NONE, k: int = 0, act: Optional[Action] = None,
@@ -53,10 +53,12 @@ class ImageBuilder:
             assert len(es) <= 4
             for s in range(4):
                 img.edges[i * 4 + s] = pack_edge(es[s]) if s < len(es) else 0
-        for i, w in enumerate(self.windows):
-            img.windows[i] = w
+        for i, (c, lo, hi, nom) in enumerate(self.windows):
+            img.windows[i] = Window(c, lo, hi)
+            if i < len(img.noms):
+                img.noms[i] = nom
         if not self.windows:
-            img.windows[0] = Window(0, 0, 0, 0)
+            img.windows[0] = Window(0, 0, 0)
         for i, p in enumerate(self.patterns):
             img.patterns[i + 1] = p
         for i, c in enumerate(self.consts):

@@ -1,6 +1,6 @@
 # SPEX cycle semantics (normative)
 
-Status: **version 1 (final)**, 2026-10-19; amended by S42 (16 windows) on 2026-10-20. Supersedes draft v0 (seeded from proposal rev 2.1). The owner approved the FROZEN\* refinements (S20, S21, S25, S28, S31, S34, S35) on 2026-10-19.
+Status: **version 1 (final)**, 2026-10-19; amended on 2026-10-20 by S42 (16 windows) and by the owner's decisions S44-S48 (location-word macro, nominal table, 16-bit clocks with counted long waits, single-port coverage macro, D as a compiler parameter, unreset synchroniser). Supersedes draft v0 (seeded from proposal rev 2.1). The owner approved the FROZEN\* refinements (S20, S21, S25, S28, S31, S34, S35) on 2026-10-19.
 
 Rule tags:
 - **FROZEN**: change only through `DECISIONS.md`.
@@ -27,13 +27,48 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 ## 1. Time and clocks
 
 - **R1.1 FROZEN.** Time is integer: one step per system clock cycle (target 48 MHz).
-- **R1.2 FROZEN.** Each engine has 3 clocks, x0..x2, 20 bits wide. They increment every cycle and are reset only by edge firings (R3.6), by engine start (R12.4) and by violation resync (R6.5).
-- **R1.3 DECIDED (S18).** No prescaler in v1. 20 bits at 48 MHz is 21.8 ms [Estimate: 2^20 / 48e6], enough for UART down to 300 baud (160,000 cycles per bit), I2C at 100 kHz and SPI. Revisit by 2026-11-14 if a held-out protocol needs a guard longer than 2^20 − 1 cycles (for example the SMBus 25-35 ms timeout).
-- **R1.4 DECIDED (S19).** Clocks **saturate** at `XMAX = 2^20 − 1`; they never wrap. A saturated clock makes `x ≥ lo` stay true and `x ≤ hi` stay false, so overflow can never make a window guard true by accident. Timestamps taken from a saturated clock are reported as `XMAX − a` and are flagged inexact by the host library.
+- **R1.2 FROZEN\* (S45).** Each engine has 3 clocks, x0..x2, **16 bits wide**. They increment every cycle and are reset only by edge firings (R3.6), by engine start (R12.4) and by violation resync (R6.5). (Was: 20 bits. A prescaler was proposed in S43(c) and rejected by the owner.)
+- **R1.3 DECIDED (S45, supersedes S18).** No prescaler. A clock reaches 65,535 cycles, 1.365 ms at 48 MHz [Estimate: (2^16 − 1) / 48e6]. A spec duration longer than that is written as a **counted loop** (§1a): the location re-arms its own clock and counts iterations in `bitcnt` with the datapath op INC (R2.10). The compiler rejects any window bound or invariant above 65,535 cycles with an error that names the loop pattern (R7.12f). Current specs at their tested parameters stay below the limit [Measured, `scripts/table_usage.py`: UART 9600 Bd 5,000, I2C Standard 455, SPI 12 cycles]; a 300-baud UART (160,000 cycles per bit) needs the loop.
+- **R1.4 DECIDED (S19, S45).** Clocks **saturate** at `XMAX = 2^16 − 1`; they never wrap. A saturated clock makes `x ≥ lo` stay true and `x ≤ hi` stay false, so overflow can never make a window guard true by accident. Timestamps taken from a saturated clock are reported as `XMAX − a` and are flagged inexact by the host library.
 - **R1.5 FROZEN.** Guards use closed comparisons only (≥, ≤, closed windows). This keeps the integer-time behaviour a faithful digitisation of the dense-time automaton (Henzinger, Manna & Pnueli, 1992).
 - **R1.6 FROZEN\* (S20). Reset value.** A clock is reset *at an instant*: when an edge fires in cycle n with trigger age `a` (R5.4), each clock in its reset mask is written so that `x_c = 0` at cycle `n − a`, the cycle in which its triggering event appeared on the pin bus. In registers: `x_c(S_{n+1}) = 1 + a`. For an edge with no triggering pin change, `a = 0` and `x_c(S_{n+1}) = 1`.
   - Consequence (DERIVED): without further resets, `x_c(S_k) = min(k − (n − a), XMAX)` for k > n.
   - Why: v0 left the reset instant undefined. Resetting at the event, not at the later firing cycle, keeps observer clocks exact when the event arrives in an entry cycle or is carried over (it is the S8 age idea applied to resets). Without it the Check role would drift by up to 2 cycles per hop and the Drive→Check duality test fails for tight windows.
+
+## 1a. Long waits: the counted loop (S45)
+
+A wait of `N` cycles with `N > 65,535` is split into `k` iterations of `L = N / k` cycles (`L ≤ 65,535`, `k ≤ 63`) in one
+location that loops on itself:
+- the edge that enters the loop resets the clock and clears `bitcnt` (op CLR, or LOAD/PUSH where they clear it anyway);
+- a self-loop internal edge `GE L`, data guard `BITCNT_LT k − 1`, op INC, resets the clock: it fires every `L` cycles exactly (R4.5);
+- the exit edge carries the real timing on the last iteration: window `[L − tol, L + tol]` (`L + tol ≤ 65,535`), data guard `BITCNT_EQ k − 1`.
+
+The longest single loop is 63 × 65,535 cycles, 86 ms at 48 MHz. `bitcnt` is the only counter, so a loop cannot run while
+a byte is being shifted; a spec that needs both splits them into different locations. In Check the loop edges are
+internal edges, identical in every role, so Check counts the same iterations; an early end is UNEXPECTED (the line is
+watched in the loop location), a late end is a TIMEOUT on the location invariant `x ≤ L + tol`.
+
+**Example (NEC IR leader burst, 9 ms).** At 48 MHz, 9 ms = 432,000 cycles = 10 × 43,200. Spec windows are written in
+line time (R7.7); here the clock base is `E` in Drive and `O` in Check, and the loop edges are internal, so nothing is
+compensated.
+
+| step | Drive (side `tx`, pin IR) | Check |
+|---|---|---|
+| enter | emit IR := 1 (PP), op CLR, reset x | observe IR rises, op CLR, reset x |
+| loop (9 times) | internal `GE 43,200` & `BITCNT_LT 9`, op INC, reset x | the same internal edge |
+| exit | emit IR := 0, POLICY `[21,600, 64,800]` nom 43,200 & `BITCNT_EQ 9`, reset x | observe IR falls, `WIN [21,600, 64,800]` & `BITCNT_EQ 9`, reset x |
+| location | invariant `x ≤ 64,800`, watches IR in Check | same |
+
+Cycle by cycle in Drive, policy nominal, the entering emit firing in cycle 100:
+- cycle 101: IR goes high on the pad; `x = 1`, `bitcnt = 0`;
+- loop fires in cycles `100 + 43,200·j` for `j = 1..9` (43,300, 86,500, ..., 388,900), `bitcnt` = 1..9 after them;
+- the exit is enabled from `x = 43,200` with `bitcnt = 9`: it fires in cycle 432,100 and IR falls on the pad in 432,101;
+- burst length on the pad: 432,101 − 101 = **432,000 cycles = 9.000 ms**. Earliest policy: 410,400 cycles (8.55 ms); latest: 453,600 (9.45 ms).
+
+The same Drive trace in Check: the rise is seen on the pin bus in cycle 103 and resets x there; the loop fires in
+`103 + 43,200·j`, the last in 388,903; the fall is seen in 432,103, where `x = 43,200`, inside `[21,600, 64,800]`. A fall
+seen at `x = 2,000` in any iteration (no edge accepts it) is UNEXPECTED; no fall by `x = 64,801` in the last iteration
+is TIMEOUT. (Test: `tests/model/test_rules.py::test_long_wait_nec_leader`.)
 
 ## 2. Automaton structure
 
@@ -45,7 +80,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   - `EDGE` (v0's "into-match"): holds iff `(P_n & M) == (value & M)` **and** at least one pin of M has a pending change (R5.2) this evaluation cycle. That is: the pattern holds now and one of its pins is the event that made it hold.
   - `tmask = M` for both modes. The pins of `tmask` are the edge's *trigger pins*: they give its age (R5.4) and are consumed when it fires (R5.5).
   - Why marked: v0 named "into-match" without defining it. A literal "was false, is now true" needs a stored previous value per pattern; the pending-change form needs nothing beyond R5 and also covers a pattern made true by a carried-over change. The difference: a pin that toggles twice inside the pending window (0→1→0 seen as two changes while the pattern wants 0) satisfies EDGE here. Documented limit.
-- **R2.5 FROZEN. Clock guard** (2-bit kind, plus a window `w = {clock c, lo, hi, nom}`):
+- **R2.5 FROZEN. Clock guard** (2-bit kind, plus a window `w = {clock c, lo, hi}`; a POLICY edge's nominal time comes from the nominal table, R11.3a):
   - `NONE`: true.
   - `GE`: `v ≥ lo`.
   - `WIN`: `lo ≤ v ≤ hi`.
@@ -86,7 +121,8 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   | 7 | LOAD_PEEK | LOAD, then pin d := out-bit of the *new* SR |
   | 8 | CLR | `bitcnt := 0` |
   | 9 | PUSH_LOAD_PEEK | PUSH, then LOAD, then pin d := out-bit of the new SR (full-duplex byte boundary of an SPI target; S38) |
-  | 10-15 | reserved | CRC ops (DEFERRED 2026-11-30); executing a reserved op is a compile error and a NOP in the model |
+  | 10 | INC | `bitcnt := min(bitcnt + 1, 63)`; SR unchanged (counted loops, §1a; S45) |
+  | 11-15 | reserved | CRC ops (DEFERRED 2026-11-30); executing a reserved op is a compile error and a NOP in the model |
 
 ## 3. Firing (the evaluation algorithm)
 
@@ -125,8 +161,8 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 
 ## 4. Pipeline and latency
 
-- **R4.1 FROZEN.** Pins go through a 2-flop synchroniser: `sync1(S_{n+1}) = pad[n]`, `sync2(S_{n+1}) = sync1(S_n)`. The pin bus is `P_n = sync2(S_n) = pad[n−2]`. Both flops reset to 0.
-- **R4.2 FROZEN.** Location entry costs E = 1 cycle: the new location's 4 edges are read from 2 parallel 64-bit macros. The entry cycle evaluates no edge.
+- **R4.1 FROZEN.** Pins go through a 2-flop synchroniser: `sync1(S_{n+1}) = pad[n]`, `sync2(S_{n+1}) = sync1(S_n)`. The pin bus is `P_n = sync2(S_n) = pad[n−2]`. **The synchroniser flops (and `pin_prev`) are not reset** (S48): after reset they hold the pad values of the previous cycles, so a pin that is high stays high on the pin bus. Until the RTL implements this, R12.7 (start in cycle ≥ 3) stays the host rule; the model initialises them to 0.
+- **R4.2 FROZEN\* (S44).** Location entry costs E = 1 cycle: the new location's 4 edges are read from 2 parallel 64-bit macros and its location word (R11.6) from a third macro, RM_IHPSG13_1P_64x16, at the same address in the same cycle. The entry cycle evaluates no edge. The macro's output holds its last read value until the next read [Source: IHP-Open-PDK 2bbec755, `RM_IHPSG13_1P_64x16_c2.txt` timing diagram (DOUT keeps the read data through a following no-operation cycle) and the functional model `RM_IHPSG13_1P_core_behavioral.v` (`A_DOUT` is a register written only on a read or a write-through)], so the word is read once per entry and stays valid while the location is evaluated; an RTL that re-reads the same address every cycle is equivalent. Silicon behaviour of CMOS5L SRAMs is unproven (proposal §4); the lockstep and formal checks must cover this. (Was: edges only.)
 - **R4.3 DECIDED (S17).** A pad change in cycle n (R0.4) appears as `chg_{n+2}` on the pin bus.
 - **R4.4 FROZEN\* (S35). Reaction latency.** For an edge that fires on a pin change and drives a pin, the latency from the pad change to the output change is `L + d` cycles, with L = 3 (2 synchroniser + 1 output register) and `d = f − s`, where s is the cycle the change appears on the pin bus and f the cycle the edge fires:
   - d = 0 if s is an evaluation cycle (latency 3);
@@ -202,7 +238,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 - **R7.6 DECIDED (S30). Watch masks.** In Drive as S, pins that S drives push-pull anywhere in the spec are removed from every watch mask (the chip does not check itself). Open-drain pins stay watched as written.
 - **R7.6a DECIDED (S39). Own echo.** In Drive as S, every pin an own emit writes (PP or OD) is also removed from the watch mask of that emit's target location: the chip's own change reaches its pin bus D = 3 cycles later and must not be judged as UNEXPECTED. Open-drain pins stay watched elsewhere.
 - **R7.6b DECIDED (S41). Echo dwell.** An own echo is absorbed only if the chip is still in the emit's target location when the echo arrives (D = 3 cycles after the firing). So in Drive, a clock-triggered edge leaving a location entered by an own emit that writes pins needs `lo ≥ D + 1 = 4` on a clock that emit reset (R4.5 bound raised; POLICY clipped with a warning, R7.12c). Found by the Drive→Check duality test under the earliest policy (I2C controller set SDA 2 cycles after its own SCL fall; the SCL echo landed in the next location).
-- **R7.7 DECIDED (S30). Time-base compensation (Drive only).** Spec windows are written in *line time*: the time between line events at the pads. The engine sees an own emit fired in cycle n on the line at n+1 and observes a line event at pad time t on the pin bus at t+2. So, with `D = 3` (1 output register + 2 synchroniser cycles):
+- **R7.7 DECIDED (S30). Time-base compensation (Drive only).** Spec windows are written in *line time*: the time between line events at the pads. The engine sees an own emit fired in cycle n on the line at n+1 and observes a line event at pad time t on the pin bus at t+2. So, with `D` the observation delay (S48: a **compiler parameter, default 3** = 1 output register + 2 synchroniser cycles, to be calibrated at bring-up on the real pads):
   - each (location, clock) gets a *base*: `E` if the clock was last reset by an own emit with no trigger pin (or by engine start in Drive), `O` if by an observe edge, an observed emit, or any edge with a trigger pin; an internal edge passes on the base of its guard clock. Internal edges with no clock guard may not reset clocks (compile error). Conflicting bases on different incoming paths are a compile error.
   - an **observe** edge, an edge derived from an observed emit (including silent and invisible ones, S39), and an invariant, on an `E`-based clock: window `[lo + D, hi + D]`;
   - an **own emit** on an `O`-based clock: window `[lo − D, hi − D]` (nom too); if `hi` falls below the R4.5 bound the spec asks for a reaction faster than the chip and is rejected; if only `lo` does, `lo` is clipped (R7.12c).
@@ -223,6 +259,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 - **R7.12 DECIDED. Other compiler checks** (each has a test that a bad spec is rejected): fan-out ≤ 4 after the R7.4 expansion, or a chain split listed with its cost (each hop adds E + 1 = 2 cycles and the extra latency of R4.4); R4.5 bounds; the visibility rule; time-base conflicts; nom ∈ [lo, hi]; halt (R3.4); resync location (R7.7); reserved ops; one data pin per emit.
 - **R7.12c DECIDED (S39). POLICY lower bound.** For a POLICY edge whose `lo` is below the R4.5 bound but whose `hi` is not, the compiler raises `lo` (and `nom` if needed) to the bound and lists a warning: the chip cannot emit at the spec's earliest instant, so Stress "earliest" tests the clipped bound. GE and WIN edges below the bound remain errors.
 - **R7.12d DECIDED (S39). Table sharing.** GE guards read only `lo` and invariants only `hi`, so they reuse any window entry with the same clock and that bound.
+- **R7.12f DECIDED (S45).** A window bound, nominal time or invariant above 65,535 cycles (after R7.7 compensation) is a compile error that names the edge and suggests the counted loop of §1a. `XMAX` itself as `hi` still means "no upper bound".
 - **R7.12a DECIDED (S36).** Fan-out above 4 after expansion is a compile error that names the location and the cost a chain split would have (E + 1 = 2 cycles per hop). Automatic chain splitting is not implemented; revisit if a protocol spec needs it (S15 count, week 2).
 - **R7.12b DECIDED (S37).** Locations unreachable from the initial and resync locations are listed as warnings and excluded from time-base inference.
 - **R7.13 DECIDED.** The compiler listing reports, per location: edges after expansion, locations that can fire in their first evaluation cycle, and the latency bound of R4.4.
@@ -230,12 +267,12 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 ## 8. Timing policies (Drive / Stress)
 
 - **R8.1 FROZEN.** For POLICY edges, the fire time `t_e` is fixed in the location's entry cycle, from `S_n` of that cycle:
-  - nominal (0): `nom` of the window;
+  - nominal (0): the nominal-table entry of the edge's window slot (R11.3a, S44);
   - earliest (1): `lo`;
   - latest (2): `hi`;
   - random (3): R8.2;
   - sweep (4): `min(lo + k·step, hi)`, with k and step from the policy register.
-- **R8.2 DECIDED (S26). Random.** A 32-bit Galois LFSR, `lfsr := (lfsr >> 1) XOR (0x80200003 if lfsr & 1 else 0)` (taps 32, 22, 2, 1), advances every cycle from reset, while stopped too. Reset value 1; a host-written seed of 0 is stored as 1. Slot i uses `r = rotr32(lfsr, 8·i) & 0xFFFFF`. With `d = hi − lo`: if d = 0 then `t = lo`; else `m = 2^bitlen(d) − 1`, `r := r & m`, if `r > d` then `r := r − (d + 1)`, `t = lo + r`.
+- **R8.2 DECIDED (S26). Random.** A 32-bit Galois LFSR, `lfsr := (lfsr >> 1) XOR (0x80200003 if lfsr & 1 else 0)` (taps 32, 22, 2, 1), advances every cycle from reset, while stopped too. Reset value 1; a host-written seed of 0 is stored as 1. Slot i uses `r = rotr32(lfsr, 8·i) & 0xFFFF` (16 bits, S45). With `d = hi − lo`: if d = 0 then `t = lo`; else `m = 2^bitlen(d) − 1`, `r := r & m`, if `r > d` then `r := r − (d + 1)`, `t = lo + r`.
 - **R8.3 DECIDED (S26). Random bias.** Every value in [lo, hi] is reachable. Values in `[lo, lo + m − d − 1]` are twice as likely as the rest; the ratio is at most 2:1. Accepted for Stress; the test checks reachability and the bound.
 - **R8.4.** Policy is per engine (a host register) and applies to all POLICY edges of the engine. Policy is ignored in Check (no POLICY edges remain after R7.4).
 
@@ -247,8 +284,11 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   - `[11:0]` maximum offset.
   - Offset = `min((ts_e − lo) >> s, 4095)`, with lo the edge's window lower bound (0 for clock guard NONE) and s the per-spec scale (engine configuration, 0..15). `ts_e ≥ lo` always holds for GE/WIN/POLICY edges, because the guard is on the same value.
   - A word with count 0 has no hits; its first hit sets min = max = offset.
-- **R9.2 FROZEN.** Updates go through a dual-port macro (pipelined read-modify-write) and never stall an engine. A 4-entry queue sits in front, with a sticky `COV_LOST` flag. Coverage counts as complete only when `COV_LOST` = 0.
-- **R9.3 DECIDED.** One engine is covered at a time (configuration). The model applies an update at once and also models the queue (in = updates this cycle, out = 1 per cycle) to compute `COV_LOST`. The host reads coverage only while the covered engine is stopped or halted.
+- **R9.2 FROZEN\* (S47, supersedes the dual-port part of S10).** Coverage words live in one **single-port RM_IHPSG13_1P_256x32** macro (was the dual-port 2P_256x32). An update is a read followed by a write of the same word; the port alternates, so one update takes 2 cycles and the macro accepts a new update every 2 cycles. A 4-entry queue sits in front, with a sticky `COV_LOST` flag. Updates never stall an engine. Coverage counts as complete only when `COV_LOST` = 0.
+  - **Why one port is enough.** One engine is covered at a time (R9.3), and an engine fires at most once every E + 1 = 2 cycles (R3.5: a firing is followed by an entry cycle). So updates arrive at most once per 2 cycles, the rate the port serves, and the queue never holds more than 1 entry [Estimate; formal TODO below]. Two covered engines would arrive at up to 1 per cycle and overflow it; R9.3 forbids that.
+  - **Why the change.** 1P and 2P IHP SRAMs use different Metal4 power-column grids (11.24 vs 17.68 µm pitch, 5.62 vs 8.84 µm pair spacing), and the Tiny Tapeout block has one stripe grid; every other macro of the chip is 1P (experiments/macro_floorplan/README.md).
+  - **Formal TODO (S47).** Prove with SymbiYosys, for any table content and inputs, that `COV_LOST` is never set while only one engine is covered. Until then the claim is [Estimate] backed by the model test `test_R9_single_port_queue`.
+- **R9.3 DECIDED (S47).** One engine is covered at a time (configuration). The model applies an update at once and also models the queue for `COV_LOST`: each cycle, updates of this cycle join the queue; the single port starts one queued update when it is idle and is busy for 2 cycles; the queue holding more than 4 sets `COV_LOST`. The host reads coverage only while the covered engine is stopped or halted.
 
 ## 10. Events between engines
 
@@ -276,22 +316,23 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   | 0 | log/cover |
 
 - **R11.2 DECIDED (S28). Action entry, 32 bits:** `[7:0]` write mask Wm, `[15:8]` write values Wv, `[16]` mode (0 PP, 1 OD), `[19:17]` data pin d, `[23:20]` datapath op, `[26:24]` event index, `[27]` emit event, `[28]` pop token, `[31:29]` reserved 0. Entry 0 is the empty action by compiler convention.
-- **R11.3 DECIDED (S28, S42). Window entry (16 per engine):** `{clock 2b, lo 20b, hi 20b, nom 20b}`, 62 bits. Compiler checks `lo ≤ nom ≤ hi`.
+- **R11.3 DECIDED (S28, S42, S44, S45). Window entry (16 per engine):** `{clock 2b, lo 16b, hi 16b}`, 34 bits.
+- **R11.3a DECIDED (S44). Nominal table (8 per engine):** 16-bit values. `nom[i]` belongs to window slot `i` for `i` in 0..7; the compiler puts every window used by a POLICY edge in slots 0–7 and rejects a spec role with more than 8 such windows [Measured need: at most 5, I2C Standard-mode controller]. Windows 8–15 have no nominal time. The compiler checks `lo ≤ nom ≤ hi`.
 - **R11.4 DECIDED (S28). Pattern entry (indices 1..7):** `{mask 8b, value 8b, mode 1b (0 LEVEL, 1 EDGE)}`.
 - **R11.5 DECIDED (S28). Constant entry (8 per engine):** 16 bits.
-- **R11.6 DECIDED (S28, S42). Location word, 14 bits:** `[13]` halt, `[12]` invariant enable, `[11:8]` invariant window index (4 bits, S42), `[7:0]` watch mask.
+- **R11.6 DECIDED (S28, S42, S44). Location word, 14 bits**, stored in the engine's RM_IHPSG13_1P_64x16 macro at the location's index (macro bits 15:14 are 0; read as in R4.2): `[13]` halt, `[12]` invariant enable, `[11:8]` invariant window index (4 bits, S42), `[7:0]` watch mask. Written by the host while the engine is stopped (R12.2), like the edge macros.
 - **R11.7 DECIDED (S28). Engine configuration:** initial location, resync location + valid bit, resync action index, `msb_first`, `drive_en`, cover enable, trace enable, coverage scale s, pin base (R12.6).
-- **R11.8 DEFERRED (2026-11-14) → brought forward 2026-10-20: proposed S43, awaiting the owner's decision; nothing below changes until then.** Where the window, pattern, constant, action and location tables live physically (flops or macro spare columns), and FIFO depths. The model uses the logical formats above. Location words do not fit in the two 64x64 edge macros (4 edges × 32 bits fill all 128 bits), so they need flops (64 × 14 = 896 bits) or a format change; this is an RTL-phase area question.
+- **R11.8 DECIDED (S44, 2026-10-20; was DEFERRED to 2026-11-14).** Edge words: 2 × 1P_64x64 per engine (S5). Location words: 1 × 1P_64x16 per engine (R11.6). Coverage: 1 × 1P_256x32 (R9.2). Windows (16 × 34 bits), nominal table (8 × 16), patterns, constants and actions: flops. FIFO depths: still DEFERRED to 2026-11-14 (RTL). Area evidence: experiments/area_probe v4/v4b/lite [Measured]. One or two engines, or a full engine plus a Check-only engine: S46.
 
 ## 12. Reset, loading and host operations
 
-- **R12.1 FROZEN.** All control state is reset by `rst_n`. Tables and macros are not reset; reading an unwritten entry is a testbench error, as in DTC D13.
+- **R12.1 FROZEN\* (S48).** All control state is reset by `rst_n`, except the pin synchroniser flops and `pin_prev` (R4.1). Tables and macros are not reset; reading an unwritten entry is a testbench error, as in DTC D13.
 - **R12.2 FROZEN.** Tables are written by the host only while the engine is stopped or halted. A write to a running engine's tables is ignored and sets sticky `HOST_ERR`.
-- **R12.3 DECIDED.** Reset state: engines `STOPPED`, clocks 0, sync flops 0, `pend* = 0`, FIFOs empty, `SR = 0`, `bitcnt = 0`, `out = 0`, `oe = 0`, flags 0, LFSR = 1, global cycle = 0.
+- **R12.3 DECIDED (S48).** Reset state: engines `STOPPED`, clocks 0, sync flops not reset (model: 0), `pend* = 0`, FIFOs empty, `SR = 0`, `bitcnt = 0`, `out = 0`, `oe = 0`, flags 0, LFSR = 1, global cycle = 0.
 - **R12.4 DECIDED.** Host operation `START(engine)` in cycle n, on a stopped or halted engine: in `S_{n+1}` the engine is `RUNNING`, `loc = initial`, `phase = ENTRY`, every clock = 1 (0 at cycle n), pending changes and events cleared. `STOP(engine)`: `state' = STOPPED` and `oe' = 0` (all drives released). Other host operations (push TX byte, push token, pop RX byte, set policy, write seed, read coverage/trace) take effect in `S_{n+1}`; a FIFO push and an engine pop on the same FIFO in one cycle are both applied (the pop sees the old head).
 - **R12.5 DEFERRED (2026-11-14).** Host SPI frame format. It will be written as a SPEX spec (dogfooding, proposal §6.4). Until then the model's host operations are API calls, one per `step`.
 - **R12.6 DECIDED (S32). Pins and engines.** Engine k sees and drives the chip pins through a rotation by its `pin base` b: engine pin i ↔ chip pin `(i + b) mod 8`. Chip output: `oe[p] = oe0[p] OR oe1[p]`; `out[p] = out1[p] if oe1[p] else out0[p]` (engine 1 wins a conflict, as DTC SM1).
-- **R12.7 DERIVED.** The synchroniser flops reset to 0 (R4.1), so a pin that is high after reset shows a change on the pin bus in cycle 2. An engine started (R12.4) in cycle 0 or 1 judges that change and, if the pin is watched, raises UNEXPECTED. Start engines in cycle 3 or later; the host library enforces this. (Found by the toy-UART duality test, 2026-10-20.)
+- **R12.7 DERIVED (to be removed when the RTL leaves the synchroniser unreset, S48).** In the model the synchroniser flops start at 0, so a pin that is high after reset shows a change on the pin bus in cycle 2. An engine started (R12.4) in cycle 0 or 1 judges that change and, if the pin is watched, raises UNEXPECTED. Start engines in cycle 3 or later; the host library enforces this. (Found by the toy-UART duality test, 2026-10-20.)
 
 ## 13. Worked examples
 

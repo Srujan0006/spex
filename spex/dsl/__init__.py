@@ -19,7 +19,7 @@ from typing import Dict, Iterable, List, Optional, Sequence
 DATA = "DATA"                    # a written value that comes from the shift register (R2.10)
 PP, OD = "PP", "OD"
 EDGE, LEVEL = "EDGE", "LEVEL"
-OPS = ("NOP", "LOAD", "PUSH", "LOAD_PUSH", "SHIN", "SHOUT", "PEEK", "LOAD_PEEK", "CLR", "PUSH_LOAD_PEEK")
+OPS = ("NOP", "LOAD", "PUSH", "LOAD_PUSH", "SHIN", "SHOUT", "PEEK", "LOAD_PEEK", "CLR", "PUSH_LOAD_PEEK", "INC")
 
 
 class SpecError(Exception):

@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Sequence
 from spex.dsl import Spec
 
 BITCNT_MAX = 63
-COUNT_OPS = {"SHIN", "SHOUT"}
+COUNT_OPS = {"SHIN", "SHOUT", "INC"}
 CLEAR_OPS = {"LOAD", "PUSH", "LOAD_PUSH", "LOAD_PEEK", "CLR", "PUSH_LOAD_PEEK"}
 
 

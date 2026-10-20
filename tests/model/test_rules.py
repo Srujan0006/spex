@@ -377,3 +377,95 @@ def test_R11_1_window_index_msb():
     f = fires(rows)
     gaps = [b_[0] - a[0] for a, b_ in zip(f, f[1:])]
     assert gaps == [2 + i for i in range(1, 9)]                          # dwell = lo of the next window
+
+
+def test_R2_10_inc_saturates():
+    """S45: INC adds 1 to bitcnt, saturating at 63, and leaves SR alone."""
+    from spex.refsim import OP_INC
+    b = ImageBuilder()
+    b.loc(0)
+    b.edge(0, 0, ck=CK_GE, win=(0, 2, 2), reset=X0, act=Action(op=OP_INC))
+    m = start(b.build())
+    m.s.engines[0].sr, m.s.engines[0].bitcnt = 0x5A, 60
+    run(m, 20, lambda n: 0, START)
+    assert m.s.engines[0].bitcnt == 63 and m.s.engines[0].sr == 0x5A
+
+
+def test_R11_3a_nominal_table():
+    """S44: nominal times come from the nominal table slot of the window; slots 8..15 have none."""
+    b = ImageBuilder()
+    b.loc(0)
+    for i in range(8):
+        b._win((0, 100 + i, 200 + i, 150))          # fill slots 0..7 with other windows
+    b.edge(0, 1, ck=CK_POLICY, win=(0, 5, 20, 9))   # window slot 8: no nominal time
+    idle_loc(b, 1)
+    img = b.build()
+    img.noms = [None] * 8
+    m = start(img)
+    with pytest.raises(UndefinedRead):
+        run(m, 6, lambda n: 0, START)
+    b2 = ImageBuilder()
+    b2.loc(0)
+    b2.edge(0, 1, ck=CK_POLICY, win=(0, 5, 20, 9))
+    idle_loc(b2, 1)
+    assert fires(run(start(b2.build()), 15, lambda n: 0, START)) == [(9, 0, 0)]
+
+
+def test_R9_single_port_queue():
+    """S47: a covered engine firing every 2 cycles (its maximum, R3.5) never sets COV_LOST on the single-port
+    coverage macro, and the queue never holds more than 1 update."""
+    from spex.refsim.model import F_COV_LOST
+    b = ImageBuilder()
+    b.loc(0)
+    b.edge(0, 0)                                     # no guard: fires in every first evaluation cycle
+    m = start(b.build(cover_en=1))
+    peak, hits = 0, []
+    for n in range(400):
+        hits += [n for f in m.step(0, HostOp("start") if n == 0 else None).fired]
+        peak = max(peak, m.s.cov_q)
+    assert all(b_ - a == 2 for a, b_ in zip(hits, hits[1:])) and len(hits) == 199     # the maximum rate
+    assert m.s.cov[(0, 0)] >> 24 == 199
+    assert not (m.s.flags & F_COV_LOST) and peak <= 1
+
+
+def nec_leader():
+    """SEMANTICS §1a worked example: 9 ms = 10 x 43,200 cycles at 48 MHz, counted with INC."""
+    from spex.dsl import Op, Spec, bitcnt_eq, bitcnt_lt, txf_ne
+    s = Spec("nec_leader", sides=["tx", "rx"], pins={"IR": 0}, clocks=["x"])
+    IDLE = s.loc("IDLE", watch=["IR"])
+    BURST = s.loc("BURST", watch=["IR"], invariant=s.window("x", 0, 64800))
+    DONE = s.loc("DONE", halt=True)
+    s.emit(IDLE, BURST, "tx", {"IR": 1}, data=txf_ne(), op=Op("CLR"), reset=["x"], label="burst on")
+    s.internal(BURST, BURST, after=s.window("x", 43200, 43200), data=bitcnt_lt(9), op=Op("INC"), reset=["x"],
+               label="loop")
+    s.emit(BURST, DONE, "tx", {"IR": 0}, at=s.window("x", 21600, 64800, nom=43200), data=bitcnt_eq(9), reset=["x"],
+           label="burst off")
+    return s
+
+
+def test_long_wait_nec_leader():
+    """The exact cycles of SEMANTICS §1a, in Drive and in Check. Planted bug: 'INC adds 2' (mutants.py)."""
+    from spex.compiler import compile_spec
+    d = compile_spec(nec_leader(), "drive", side="tx")
+    m = start(d.image)
+    host = {3: HostOp("start"), 99: HostOp("push_tx", 0, 0)}     # the entering emit fires in cycle 100
+    line, fired = [], []
+    for n in range(432200):
+        o = m.outputs()
+        line.append(o.out & 1 if o.oe & 1 else 0)
+        fired += [(n, f.loc, f.target) for f in m.step(line[-1], host.get(n)).fired]
+    assert fired[0] == (100, 0, 1)
+    assert [n for n, src, dst in fired if src == 1 and dst == 1] == [100 + 43200 * j for j in range(1, 10)]
+    assert fired[-1] == (432100, 1, 2)
+    rise = line.index(1)
+    fall = line.index(0, rise)
+    assert (rise, fall, fall - rise) == (101, 432101, 432000)            # 9.000 ms on the pad
+    c = compile_spec(nec_leader(), "check")
+    mc = start(c.image)
+    cf, viols = [], []
+    for n, p in enumerate(line):
+        r = mc.step(p, HostOp("start") if n == 3 else None)
+        cf += [(n, f.loc, f.target, f.ts) for f in r.fired]
+        viols += r.violations
+    assert viols == [] and cf[0][:3] == (103, 0, 1)
+    assert cf[-1] == (432103, 1, 2, 43200)

@@ -19,7 +19,7 @@ from typing import List, Optional
 
 from .tables import (CK_GE, CK_NONE, CK_POLICY, CK_WIN, DG_BITCNT_EQ, DG_BITCNT_LT, DG_EVENT, DG_NONE,
                      DG_SR_MATCH, DG_SR_NOMATCH, DG_TOKEN, DG_TXF_NE, EDGE, NUM_SLOTS, OD, OP_CLR, OP_LOAD,
-                     OP_LOAD_PEEK, OP_LOAD_PUSH, OP_NOP, OP_PEEK, OP_PUSH, OP_PUSH_LOAD_PEEK, OP_SHIN, OP_SHOUT, POL_EARLIEST,
+                     OP_INC, OP_LOAD_PEEK, OP_LOAD_PUSH, OP_NOP, OP_PEEK, OP_PUSH, OP_PUSH_LOAD_PEEK, OP_SHIN, OP_SHOUT, POL_EARLIEST,
                      POL_LATEST, POL_NOMINAL, POL_RANDOM, POL_SWEEP, XMAX, EngineImage, unpack_action,
                      unpack_edge, unpack_loc)
 
@@ -141,6 +141,7 @@ class ChipState:
     cov: dict = field(default_factory=dict)       # (engine, index) -> 32-bit word
     cov_engine: int = 0
     cov_q: int = 0
+    cov_busy: int = 0         # single-port coverage macro: cycles left of the current read-modify-write (S47)
 
     def copy(self) -> "ChipState":
         n = copy.copy(self)
@@ -229,8 +230,12 @@ class Spex:
             ev_n |= e.ev_out                          # R10.1: OR of all engines, emitter included
         for i in range(self.num_engines):
             self._engine(cur, nxt, i, P, chg, ev_n, res)
-        # coverage queue (R9.2, R9.3): drains one update per cycle
-        nxt.cov_q = max(nxt.cov_q - 1, 0)
+        # coverage port (R9.2, R9.3, S47): single-port RMW, read then write, so one update starts every 2 cycles
+        if cur.cov_busy == 0 and nxt.cov_q > 0:
+            nxt.cov_q -= 1
+            nxt.cov_busy = 1                          # the write cycle that follows this read
+        else:
+            nxt.cov_busy = max(cur.cov_busy - 1, 0)
         self._seed = None
         if host is not None:
             self._host(cur, nxt, host, res)
@@ -392,7 +397,7 @@ class Spex:
         w = img.window(e.window)
         pol = ce.policy
         if pol.mode == POL_NOMINAL:
-            return w.nom
+            return img.nom(e.window)                       # R11.3a (S44)
         if pol.mode == POL_EARLIEST:
             return w.lo
         if pol.mode == POL_LATEST:
@@ -400,7 +405,7 @@ class Spex:
         if pol.mode == POL_RANDOM:
             sh = (8 * slot) % 32
             raw = ((lfsr >> sh) | (lfsr << (32 - sh))) & M32 if sh else lfsr
-            return random_time(w.lo, w.hi, raw & 0xFFFFF)
+            return random_time(w.lo, w.hi, raw & 0xFFFF)   # 16 bits (S45)
         if pol.mode == POL_SWEEP:
             return min(w.lo + pol.k * pol.step, w.hi)
         raise ValueError(pol.mode)
@@ -457,11 +462,13 @@ class Spex:
             dbit = outbit(ne.sr)
         elif op == OP_CLR:
             ne.bitcnt = 0
+        elif op == OP_INC:                                         # S45: counted loops
+            ne.bitcnt = min(ce.bitcnt + 1, 63)
         elif op == OP_PUSH_LOAD_PEEK:
             push()
             load()
             dbit = outbit(ne.sr)
-        # reserved ops 10-15: NOP in the model (R2.10)
+        # reserved ops 11-15: NOP in the model (R2.10)
         wm = a.wm
         if dbit is not None:
             wv = (wv & ~(1 << d)) | (dbit << d)

@@ -19,7 +19,7 @@ from spex.refsim import tables as T
 from spex.refsim.model import Policy
 
 E_ENTRY = 1                    # E (R4.2)
-D_OBS = 3                      # 1 output register + 2 synchroniser cycles (R7.7)
+D_OBS = 3                      # default observation delay: 1 output register + 2 synchroniser cycles (R7.7, S48)
 MAX_AGE = 2
 
 OP_CODES = {n: i for i, n in enumerate(dsl.OPS)}
@@ -119,7 +119,8 @@ def table_usage(img: T.EngineImage, edges: Dict[str, List[CEdge]], n_windows: in
         "constants": (used(img.consts), T.NUM_CONSTS),
         "actions": (used(img.actions), T.NUM_ACTIONS),
         # XMAX as hi means "no upper bound" (a saturating clock never exceeds it), not a value the clock must reach
-        "max_clock_value": max([v for w in windows[:n_windows] for v in (w.lo, w.hi, w.nom) if v < T.XMAX], default=0),
+        "max_clock_value": max([v for w in windows[:n_windows] for v in (w.lo, w.hi) if v < T.XMAX]
+                               + [n for n in img.noms if n is not None], default=0),
     }
 
 
@@ -303,7 +304,7 @@ def _edge_base(ce: CEdge, bases) -> Optional[str]:
     return next(iter(b)) if len(b) == 1 else "?"
 
 
-def _time_base(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str]) -> None:
+def _time_base(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str], d_obs: int = D_OBS) -> None:
     nclk = len(spec.clocks)
     bases = {l.name: [set() for _ in range(nclk)] for l in spec.locs}
     for c in range(nclk):
@@ -344,14 +345,17 @@ def _time_base(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str]) -> No
                 continue
             shift = 0
             if (ce.pmask or ce.observed) and b == "E":
-                shift = D_OBS
+                shift = d_obs
             elif ce.cls == "own" and not ce.pmask and b == "O":
-                shift = -D_OBS
+                shift = -d_obs
             if shift:
+                unbounded = ce.hi >= T.XMAX                   # "no upper bound" stays so (R7.12f)
                 ce.lo, ce.hi, ce.nom = ce.lo + shift, ce.hi + shift, ce.nom + shift
+                if unbounded:
+                    ce.hi = T.XMAX
                 if ce.hi < 0 or (ce.lo < 0 and ce.ck != "POLICY"):
-                    errs.append(f"{ce.origin.label}: own emit {D_OBS} cycles after an observed event needs "
-                                f"hi >= {D_OBS}; the chip cannot react that fast (R7.7)")
+                    errs.append(f"{ce.origin.label}: own emit {d_obs} cycles after an observed event needs "
+                                f"hi >= {d_obs}; the chip cannot react that fast (R7.7)")
                 elif ce.lo < 0:                               # S39: clipped further by the R4.5 check
                     ce.lo, ce.nom = 0, max(ce.nom, 0)
     inv_shift = {}
@@ -359,7 +363,7 @@ def _time_base(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str]) -> No
         if l.invariant is not None and l.name in live:
             c = spec.clocks.index(l.invariant.clock)
             b = base_of(l, c, f"invariant of {l.name}")
-            inv_shift[l.name] = D_OBS if b == "E" else 0
+            inv_shift[l.name] = d_obs if b == "E" else 0
     return inv_shift
 
 
@@ -441,7 +445,7 @@ def _determinism(loc: Loc, es: List[CEdge], role: str, errs: List[str]) -> None:
 
 
 # ------------------------------------------------------------------------------------------------ R4.5
-def _exactness(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str], warns: List[str]) -> None:
+def _exactness(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str], warns: List[str], d_obs: int = D_OBS) -> None:
     nclk = len(spec.clocks)
     incoming = {l.name: [] for l in spec.locs}
     for es in edges.values():
@@ -462,7 +466,7 @@ def _exactness(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str], warns
                 continue
             need = E_ENTRY + 1 + (MAX_AGE if any(pin and (r >> ce.clock) & 1 for r, pin, _ in inc) else 0)
             if any(echo for _, _, echo in inc):          # S41: stay until the own echo has arrived (R7.6b)
-                need = max(need, D_OBS + 1)
+                need = max(need, d_obs + 1)
             if ce.lo < need and ce.ck == "POLICY" and ce.hi >= need:          # S39: clip, do not reject
                 warns.append(f"{ce.origin.label}: earliest emit clipped from lo = {ce.lo} to {need}; the spec's "
                              f"lower edge cannot be reached exactly (R4.5)")
@@ -474,9 +478,29 @@ def _exactness(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str], warns
                             f"(R4.5)")
 
 
+# ------------------------------------------------------------------------------------------------ R7.12f
+def _clock_range(spec: Spec, edges: Dict[str, List[CEdge]], inv_shift, errs: List[str]) -> None:
+    """S45: 16-bit clocks. A bound above XMAX is an error; hi = XMAX means "no upper bound"."""
+    hint = ("split the wait into a counted loop: a self-loop internal edge GE L with op INC and BITCNT_LT k-1, "
+            "and the real window on the last iteration (SEMANTICS §1a)")
+    for es in edges.values():
+        for ce in es:
+            if ce.ck is None:
+                continue
+            vals = [ce.lo] + ([ce.hi] if ce.hi != T.XMAX else []) + ([ce.nom] if ce.ck == "POLICY" else [])
+            if max(vals) > T.XMAX:
+                errs.append(f"{ce.origin.label}: window bound {max(vals)} cycles exceeds the 16-bit clock "
+                            f"({T.XMAX}); {hint} (R7.12f)")
+    for l in spec.locs:
+        if l.invariant is not None and l.invariant.hi + inv_shift.get(l.name, 0) > T.XMAX:
+            errs.append(f"{l.name}: invariant {l.invariant.hi} cycles exceeds the 16-bit clock ({T.XMAX}); {hint} "
+                        f"(R7.12f)")
+
+
 # ------------------------------------------------------------------------------------------------ main
 def compile_spec(spec: Spec, role: str = "check", side: Optional[str] = None, policy: Policy = Policy(),
-                 cover: bool = False, trace: bool = True, cov_shift: int = 0) -> Compiled:
+                 cover: bool = False, trace: bool = True, cov_shift: int = 0, d_obs: int = D_OBS) -> Compiled:
+    """d_obs: observation delay D of R7.7 (S48: a parameter, default 3, calibrated at bring-up)."""
     errs: List[str] = []
     warns: List[str] = []
     if role not in ("drive", "check"):
@@ -513,7 +537,7 @@ def compile_spec(spec: Spec, role: str = "check", side: Optional[str] = None, po
     # time base (R7.7), Drive only
     inv_shift = {}
     if role == "drive" and not errs:
-        inv_shift = _time_base(spec, edges, errs)
+        inv_shift = _time_base(spec, edges, errs, d_obs)
 
     # slot order (otherwise last, R7.9), fan-out (R2.2), halt (R3.4), resync (R7.7)
     for l in spec.locs:
@@ -534,7 +558,8 @@ def compile_spec(spec: Spec, role: str = "check", side: Optional[str] = None, po
 
     live = _reachable(spec, edges)
     warns += [f"{l.name}: unreachable from the initial and resync locations" for l in spec.locs if l.name not in live]
-    _exactness(spec, edges, errs, warns)
+    _exactness(spec, edges, errs, warns, d_obs)
+    _clock_range(spec, edges, inv_shift, errs)
     for l in spec.locs:
         _determinism(l, edges[l.name], role, errs)
     if errs:
@@ -559,10 +584,24 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
         i = tbl.index(v)
         return i + first if i < limit else 0          # placeholder; the error is raised below
 
-    for l in spec.locs:                             # pass 1: windows read in full, so GE and invariants can share
+    # windows: keys (clock, lo, hi, nom or None). POLICY windows first, in slots 0..7 with their nominal time (R11.3a)
+    def find(clock, lo=None, hi=None):
+        for i, (c, l_, h, _) in enumerate(windows[:T.NUM_WINDOWS]):
+            if c == clock and (lo is None or l_ == lo) and (hi is None or h == hi):
+                return i
+        return None
+
+    for l in spec.locs:
         for ce in edges[l.name]:
-            if ce.ck and ce.ck != "GE":
-                idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), T.NUM_WINDOWS, "windows")
+            if ce.ck == "POLICY":
+                idx(windows, (ce.clock, ce.lo, ce.hi, ce.nom), T.NUM_WINDOWS, "windows")
+    if sum(w[3] is not None for w in windows) > T.NUM_NOMS:
+        errs.append(f"{sum(w[3] is not None for w in windows)} windows used by POLICY edges; the nominal table "
+                    f"has {T.NUM_NOMS} (R11.3a)")
+    for l in spec.locs:                             # then windows read in full, so GE and invariants can share
+        for ce in edges[l.name]:
+            if ce.ck == "WIN" and find(ce.clock, ce.lo, ce.hi) is None:
+                idx(windows, (ce.clock, ce.lo, ce.hi, None), T.NUM_WINDOWS, "windows")
     for l in spec.locs:
         li = loc_index[l.name]
         es = edges[l.name]
@@ -574,10 +613,16 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
             p = idx(patterns, T.Pattern(ce.pmask, ce.pval & ce.pmask, ce.pmode), 7, "pin patterns", 1) \
                 if ce.pmask else 0
             w = 0
-            if ce.ck == "GE":                                 # GE reads only lo: reuse any window with that lo
-                w = next((i for i, x in enumerate(windows[:T.NUM_WINDOWS]) if x.clock == ce.clock and x.lo == ce.lo), None)
-            if w is None or (ce.ck and ce.ck != "GE"):
-                w = idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), T.NUM_WINDOWS, "windows")
+            if ce.ck == "POLICY":
+                w = windows.index((ce.clock, ce.lo, ce.hi, ce.nom))
+            elif ce.ck == "WIN":
+                w = find(ce.clock, ce.lo, ce.hi)
+            elif ce.ck == "GE":                               # GE reads only lo: reuse any window with that lo
+                w = find(ce.clock, ce.lo)
+                if w is None:
+                    w = idx(windows, (ce.clock, ce.lo, ce.lo, None), T.NUM_WINDOWS, "windows")
+            if w is None or w >= T.NUM_WINDOWS:
+                w = 0                                         # table overflow: the error is already recorded
             dk = DG_CODES[ce.dk] if ce.dk else T.DG_NONE
             k = 0
             if ce.dk == "EVENT":
@@ -594,9 +639,9 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
             w = l.invariant
             inv_en = 1
             c = spec.clocks.index(w.clock)
-            inv_w = next((i for i, x in enumerate(windows[:T.NUM_WINDOWS]) if x.clock == c and x.hi == w.hi + s), None)
-            if inv_w is None:                                   # an invariant reads only hi: share an entry
-                inv_w = idx(windows, T.Window(c, w.lo + s, w.hi + s, w.lo + s), T.NUM_WINDOWS, "windows")
+            inv_w = find(c, hi=w.hi + s)                         # an invariant reads only hi: share an entry
+            if inv_w is None:
+                inv_w = idx(windows, (c, w.lo + s, w.hi + s, None), T.NUM_WINDOWS, "windows")
         img.locs[li] = T.pack_loc(T.Loc(watch=spec.mask(l.watch) & ~unwatch & ~echo[l.name], inv_en=inv_en,
                                         inv_win=inv_w,
                                         halt=int(l.halt)))
@@ -608,10 +653,12 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
         resync_action = idx(actions, key, 16, "actions")
     if errs:
         raise CompileError(errs)
-    for i, w in enumerate(windows):
-        img.windows[i] = w
+    for i, (c, lo, hi, nom) in enumerate(windows[:T.NUM_WINDOWS]):
+        img.windows[i] = T.Window(c, lo, hi)
+        if nom is not None:
+            img.noms[i] = nom                       # POLICY windows sit in slots 0..7 (checked above)
     if not windows:
-        img.windows[0] = T.Window(0, 0, 0, 0)
+        img.windows[0] = T.Window(0, 0, 0)
     for i, p in enumerate(patterns):
         img.patterns[i + 1] = p
     for i, c in enumerate(consts):

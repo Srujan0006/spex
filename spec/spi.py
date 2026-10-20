@@ -16,7 +16,7 @@ next; CS fall only presents the preloaded byte. A byte preloaded at the end of a
 from spex.dsl import txf_ne
 from spex.dsl import DATA, OD, Op, Spec, bitcnt_eq, bitcnt_lt
 
-BIG = (1 << 20) - 1
+BIG = (1 << 16) - 1            # XMAX: "no upper bound" (R7.12f)
 
 
 def spi(mode: int = 0, H: int = 12, tV: int = 6) -> Spec:

@@ -12,9 +12,10 @@ NUM_LOCS = 64
 NUM_SLOTS = 4
 NUM_ACTIONS = 16
 NUM_WINDOWS = 16                # S42: 4-bit window index (edge word bit 2 is its MSB)
+NUM_NOMS = 8                    # S44: nominal table, one entry per window slot 0..7
 NUM_PATTERNS = 8          # index 0 = "none"
 NUM_CONSTS = 8
-XBITS = 20
+XBITS = 16                      # S45: 16-bit clocks, no prescaler
 XMAX = (1 << XBITS) - 1
 
 # clock guard kinds (R2.5)
@@ -26,7 +27,7 @@ LEVEL, EDGE = 0, 1
 # pin write modes (R2.9)
 PP, OD = 0, 1
 # datapath ops (R2.10)
-OP_NOP, OP_LOAD, OP_PUSH, OP_LOAD_PUSH, OP_SHIN, OP_SHOUT, OP_PEEK, OP_LOAD_PEEK, OP_CLR, OP_PUSH_LOAD_PEEK = range(10)
+OP_NOP, OP_LOAD, OP_PUSH, OP_LOAD_PUSH, OP_SHIN, OP_SHOUT, OP_PEEK, OP_LOAD_PEEK, OP_CLR, OP_PUSH_LOAD_PEEK, OP_INC = range(11)
 # policies (R8.1)
 POL_NOMINAL, POL_EARLIEST, POL_LATEST, POL_RANDOM, POL_SWEEP = range(5)
 
@@ -121,10 +122,10 @@ def unpack_loc(w: int) -> Loc:
 # ---------------------------------------------------------------- small tables (R11.3-R11.5)
 @dataclass(frozen=True)
 class Window:
+    """R11.3 (S44): {clock, lo, hi}; nominal times live in the nominal table (R11.3a)."""
     clock: int
     lo: int
     hi: int
-    nom: int
 
 
 @dataclass(frozen=True)
@@ -155,6 +156,7 @@ class EngineImage:
     locs: List[Optional[int]] = field(default_factory=lambda: [None] * NUM_LOCS)
     actions: List[Optional[int]] = field(default_factory=lambda: [None] * NUM_ACTIONS)
     windows: List[Optional[Window]] = field(default_factory=lambda: [None] * NUM_WINDOWS)
+    noms: List[Optional[int]] = field(default_factory=lambda: [None] * NUM_NOMS)
     patterns: List[Optional[Pattern]] = field(default_factory=lambda: [None] * NUM_PATTERNS)
     consts: List[Optional[int]] = field(default_factory=lambda: [None] * NUM_CONSTS)
     config: EngineConfig = field(default_factory=EngineConfig)
@@ -170,6 +172,12 @@ class EngineImage:
 
     def window(self, i: int) -> Window:
         return _get(self.windows, i, f"window {i}")
+
+    def nom(self, i: int) -> int:
+        """R11.3a: nominal time of window slot i (slots 0..7 only)."""
+        if not 0 <= i < NUM_NOMS:
+            raise UndefinedRead(f"nominal time of window slot {i} (only slots 0..{NUM_NOMS - 1} have one)")
+        return _get(self.noms, i, f"nominal time {i}")
 
     def pattern(self, i: int) -> Pattern:
         return _get(self.patterns, i, f"pattern {i}")

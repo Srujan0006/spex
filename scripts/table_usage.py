@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from spec.i2c import i2c  # noqa: E402
 from spec.spi import spi  # noqa: E402
 from spec.uart_8n1 import uart_8n1  # noqa: E402
-from spex.compiler import compile_spec  # noqa: E402
+from spex.compiler import CompileError, compile_spec  # noqa: E402
 
 SPECS = [
     ("uart_8n1 (115200 Bd: T=417, d=8)", lambda: uart_8n1(417, 8), ["tx"]),
@@ -26,14 +26,20 @@ COLS = ["locations", "edges", "windows", "patterns", "constants", "actions"]
 def rows():
     for name, make, sides in SPECS:
         for role, side in [("check", None)] + [("drive", s) for s in sides]:
-            c = compile_spec(make(), role, side=side)
-            yield name, role + (f" ({side})" if side else ""), c.usage
+            try:
+                u = compile_spec(make(), role, side=side).usage
+            except CompileError as e:
+                u = "; ".join(sorted({x.split(": ", 1)[1].split(";")[0] for x in e.errors}))
+            yield name, role + (f" ({side})" if side else ""), u
 
 
 def main():
     print("| spec | role | " + " | ".join(COLS) + " | largest clock value |")
     print("|---" * (len(COLS) + 3) + "|")
     for name, role, u in rows():
+        if isinstance(u, str):
+            print(f"| {name} | {role} | compile error: {u} (needs the counted loop, SEMANTICS §1a) |" + " |" * len(COLS))
+            continue
         print(f"| {name} | {role} | " + " | ".join(f"{u[k][0]}/{u[k][1]}" for k in COLS)
               + f" | {u['max_clock_value']} |")
 
