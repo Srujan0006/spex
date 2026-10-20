@@ -56,3 +56,17 @@ def test_teeth_model_differs_from_good_one_untimed():
     models = {n: (t, exp) for n, t, exp in export_tchecker.models()}
     assert untimed_bad_reachable(models["uart_broken"][0]) and models["uart_broken"][1] is True
     assert not untimed_bad_reachable(models["uart_8n1"][0]) and models["uart_8n1"][1] is False
+
+
+def test_model_check_with_tchecker(tmp_path):
+    """Runs TChecker when TCK_REACH points at tck-reach (CI workflow `tchecker` does; locally:
+    scripts/build_tchecker.sh DIR, then TCK_REACH=DIR/bin/tck-reach)."""
+    import pytest
+    import subprocess
+    exe = os.environ.get("TCK_REACH")
+    if not exe:
+        pytest.skip("TCK_REACH not set")
+    script = os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "export_tchecker.py")
+    r = subprocess.run([sys.executable, "-B", script, str(tmp_path), "--tck-reach", exe], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.count(": OK") == 6

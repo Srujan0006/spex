@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(ROOT, "tests", "model"))
 from mutants import MUTANTS  # noqa: E402
 
 
-COPY = ("spex", "spec", "tests")
+COPY = ("spex", "spec", "tests", "scripts")
 
 
 def run(i):

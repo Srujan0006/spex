@@ -21,12 +21,9 @@ jobs:
         with:
           path: tchecker/install
           key: tchecker-${{ hashFiles('scripts/build_tchecker.sh') }}
-      - name: Build TChecker
+      - name: Install TChecker
         if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q cmake flex bison libboost-all-dev catch2
-          ./scripts/build_tchecker.sh "$PWD/tchecker/install"
+        run: ./scripts/build_tchecker.sh "$PWD/tchecker/install"
       - name: Model-check the exported specs
         run: python3 -B scripts/export_tchecker.py tck_out --tck-reach "$PWD/tchecker/install/bin/tck-reach"
       - uses: actions/upload-artifact@v4
