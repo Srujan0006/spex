@@ -41,12 +41,14 @@ module fp_tile #(
                 .A_CLK(clk), .A_MEN(men), .A_WEN(wen), .A_REN(ren), .A_ADDR(addr), .A_DIN(wide), .A_DLY(1'b1),
                 .A_DOUT(q), .A_BM(bm), .A_BIST_CLK(1'b0), .A_BIST_EN(1'b0), .A_BIST_MEN(1'b0), .A_BIST_WEN(1'b0),
                 .A_BIST_REN(1'b0), .A_BIST_ADDR({AW{1'b0}}), .A_BIST_DIN({DW{1'b0}}), .A_BIST_BM({DW{1'b0}}));
-        end else if (KIND == 1) begin : g_m32
+        end
+        if (KIND == 1) begin : g_m32
             RM_IHPSG13_1P_256x32_c2_bm_bist u_sram (
                 .A_CLK(clk), .A_MEN(men), .A_WEN(wen), .A_REN(ren), .A_ADDR(addr), .A_DIN(wide), .A_DLY(1'b1),
                 .A_DOUT(q), .A_BM(bm), .A_BIST_CLK(1'b0), .A_BIST_EN(1'b0), .A_BIST_MEN(1'b0), .A_BIST_WEN(1'b0),
                 .A_BIST_REN(1'b0), .A_BIST_ADDR({AW{1'b0}}), .A_BIST_DIN({DW{1'b0}}), .A_BIST_BM({DW{1'b0}}));
-        end else begin : g_m16
+        end
+        if (KIND == 2) begin : g_m16
             RM_IHPSG13_1P_64x16_c2 u_sram (
                 .A_CLK(clk), .A_MEN(men), .A_WEN(wen), .A_REN(ren), .A_ADDR(addr), .A_DIN(wide), .A_DLY(1'b1),
                 .A_DOUT(q));

@@ -13,7 +13,9 @@ x range (see README.md, stripe findings). x = 3.36 + 11.24 i and y = 3.78 k keep
 """
 import json
 import os
+import re
 import shutil
+import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMMON = os.path.join(HERE, "common")
@@ -82,6 +84,21 @@ def config(tiles):
     return cfg
 
 
+def check_instances(src, top, tiles):
+    """The MACROS instance paths must be the flattened names Yosys gives the macro cells (LibreLane's
+    CheckMacroInstances fails otherwise; an else-if generate chain adds an implicit genblk level)."""
+    if not shutil.which("yosys"):
+        print("  yosys not found: instance paths not checked")
+        return
+    libs = " ".join(sorted(f for f in os.listdir(src) if f.startswith("RM_") and f.endswith(".v")))
+    r = subprocess.run(["yosys", "-p", f"read_verilog -sv project.v fp_tile.v; read_verilog -lib {libs}; "
+                        f"synth -flatten -top {top}; select -list t:RM_*"], cwd=src, capture_output=True, text=True)
+    got = set(re.findall(rf"{top}/(\S+)", r.stdout))
+    want = {f"{inst}.{SUB[kind]}.u_sram" for inst, kind, *_ in tiles}
+    if got != want:
+        raise SystemExit(f"macro instance paths differ: yosys {sorted(got)} vs config {sorted(want)}")
+
+
 def main():
     for name, tiles in VARIANTS.items():
         d = os.path.join(HERE, "variants", name)
@@ -97,6 +114,7 @@ def main():
         info = info.replace('title:        "SPEX floorplan experiment fp5"', f'title:        "SPEX floorplan experiment {name}"')
         info = info.replace('top_module:  "tt_um_srujan0006_fp5"', f'top_module:  "{top}"')
         open(os.path.join(d, "info.yaml"), "w").write(f"# {GEN}\n" + info)
+        check_instances(src, top, tiles)
         print(f"{name}: {len(tiles)} macros -> {d}")
 
 
