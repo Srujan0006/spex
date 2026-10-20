@@ -362,3 +362,18 @@ def test_R2_10_push_load_peek():
     e = m.s.engines[0]
     assert e.rx == [0x3C] and e.sr == 0x80 and e.tx == [0x01] and e.bitcnt == 0
     assert rows[-1].out & 0b100 and rows[-1].oe & 0b100
+
+
+def test_R11_1_window_index_msb():
+    """S42: windows 8..15 are reached through edge-word bit 2."""
+    b = ImageBuilder()
+    for i in range(9):
+        b.loc(i)
+        b.edge(i, i + 1, ck=CK_GE, win=(0, 2 + i, 2 + i), reset=X0)   # window i has lo = 2 + i
+    idle_loc(b, 9)
+    img = b.build()
+    assert img.windows[8].lo == 10
+    rows = run(start(img), 80, lambda n: 0, START)
+    f = fires(rows)
+    gaps = [b_[0] - a[0] for a, b_ in zip(f, f[1:])]
+    assert gaps == [2 + i for i in range(1, 9)]                          # dwell = lo of the next window

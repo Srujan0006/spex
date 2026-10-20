@@ -1,6 +1,6 @@
 # SPEX cycle semantics (normative)
 
-Status: **version 1 (final)**, 2026-10-19. Supersedes draft v0 (seeded from proposal rev 2.1). The owner approved the FROZEN\* refinements (S20, S21, S25, S28, S31, S34, S35) on 2026-10-19.
+Status: **version 1 (final)**, 2026-10-19; amended by S42 (16 windows) on 2026-10-20. Supersedes draft v0 (seeded from proposal rev 2.1). The owner approved the FROZEN\* refinements (S20, S21, S25, S28, S31, S34, S35) on 2026-10-19.
 
 Rule tags:
 - **FROZEN**: change only through `DECISIONS.md`.
@@ -258,30 +258,30 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 
 ## 11. Table formats
 
-- **R11.1 FROZEN\* (S28). Edge word, 32 bits** (fields as proposal §3.3; v1 fixes the meaning of every code):
+- **R11.1 FROZEN\* (S28, S42). Edge word, 32 bits** (fields as proposal §3.3; v1 fixes the meaning of every code; S42, approved by the owner on 2026-10-20, uses the reserved bit 2 as the window index MSB, so the window index is 4 bits = `{bit 2, bits 21:19}`):
 
   | bits | field |
   |---|---|
   | 31:25 | target location (7 bits; bit 31 is 0 while there are 64 locations) |
   | 24:22 | pin pattern index (0 = none) |
-  | 21:19 | window index |
+  | 21:19 | window index, bits 2:0 |
   | 18:17 | clock guard kind: 0 NONE, 1 GE, 2 WIN, 3 POLICY |
   | 16:14 | data guard kind (R2.6) |
   | 13:11 | constant index k, or event index |
   | 10:7 | action index |
   | 6:4 | clock reset mask (bit 4 = x0) |
   | 3 | error edge (SPEC_ERROR when fired) |
-  | 2 | reserved, 0 |
+  | 2 | window index, bit 3 (S42; was reserved) |
   | 1 | valid |
   | 0 | log/cover |
 
 - **R11.2 DECIDED (S28). Action entry, 32 bits:** `[7:0]` write mask Wm, `[15:8]` write values Wv, `[16]` mode (0 PP, 1 OD), `[19:17]` data pin d, `[23:20]` datapath op, `[26:24]` event index, `[27]` emit event, `[28]` pop token, `[31:29]` reserved 0. Entry 0 is the empty action by compiler convention.
-- **R11.3 DECIDED (S28). Window entry (8 per engine):** `{clock 2b, lo 20b, hi 20b, nom 20b}`, 62 bits. Compiler checks `lo ≤ nom ≤ hi`.
+- **R11.3 DECIDED (S28, S42). Window entry (16 per engine):** `{clock 2b, lo 20b, hi 20b, nom 20b}`, 62 bits. Compiler checks `lo ≤ nom ≤ hi`.
 - **R11.4 DECIDED (S28). Pattern entry (indices 1..7):** `{mask 8b, value 8b, mode 1b (0 LEVEL, 1 EDGE)}`.
 - **R11.5 DECIDED (S28). Constant entry (8 per engine):** 16 bits.
-- **R11.6 DECIDED (S28). Location word:** `[12]` halt, `[11]` invariant enable, `[10:8]` invariant window index, `[7:0]` watch mask.
+- **R11.6 DECIDED (S28, S42). Location word, 14 bits:** `[13]` halt, `[12]` invariant enable, `[11:8]` invariant window index (4 bits, S42), `[7:0]` watch mask.
 - **R11.7 DECIDED (S28). Engine configuration:** initial location, resync location + valid bit, resync action index, `msb_first`, `drive_en`, cover enable, trace enable, coverage scale s, pin base (R12.6).
-- **R11.8 DEFERRED (2026-11-14).** Where the window, pattern, constant, action and location tables live physically (flops or macro spare columns), and FIFO depths. The model uses the logical formats above. Location words do not fit in the two 64x64 edge macros (4 edges × 32 bits fill all 128 bits), so they need flops (64 × 13 = 832 bits) or a format change; this is an RTL-phase area question.
+- **R11.8 DEFERRED (2026-11-14).** Where the window, pattern, constant, action and location tables live physically (flops or macro spare columns), and FIFO depths. The model uses the logical formats above. Location words do not fit in the two 64x64 edge macros (4 edges × 32 bits fill all 128 bits), so they need flops (64 × 14 = 896 bits) or a format change; this is an RTL-phase area question.
 
 ## 12. Reset, loading and host operations
 

@@ -5,18 +5,19 @@
 - Files imported unmodified: `info.yaml`, `src/project.v`, `src/config.json`, `test/{Makefile,README.md,requirements.txt,tb.gtkw,tb.v,test.py}`, `docs/info.md`, `.github/workflows/{docs,gds,test,fpga}.yaml`, `LICENSE` (Apache-2.0, same as ours; the repo had none).
 - Not imported: the template's `README.md`, `.gitignore`, `.devcontainer/`, `.vscode/` (ours exist or are not needed). `.github/workflows/model.yaml` is ours and was kept.
 
-## 8x4 availability [Measured, 2026-10-19]
+## 8x4 availability [Measured, corrected 2026-10-20]
 
-- The official support tools (`TinyTapeout/tt-support-tools`, branch `ihp-sg13cmos5l`, `d66cf17`, 2026-09-21) list tile sizes up to **6x4** (`1289.28 × 710.64 µm`) in `tech/ihp-sg13cmos5l/tile_sizes.yaml`. There is **no 8x4**. The template's `info.yaml` comment still lists only sizes up to 8x2.
-- Ken Pettit's `kdp1965/tt-support-tools`, branch `cmos-8x4` (`89b2e17`, 2026-09-30), adds `8x1`, `8x2` and `8x4` (`1724.16 × 710.64 µm`, 1.225 mm²).
-- Command: `git clone -b <branch> <repo>` then `cat tech/ihp-sg13cmos5l/tile_sizes.yaml`.
-- Therefore `info.yaml` stays at **6x4** for the main design, as the kickoff prompt requires. The macro floorplan experiment (`experiments/macro_floorplan/`) uses the `cmos-8x4` tools as the stopgap.
+- **Correction.** On 2026-10-19 this note said the official tools had no 8x4. That was wrong: the check piped the file through `head -30`, which cut off its last lines (BUGS 20).
+- The official support tools (`TinyTapeout/tt-support-tools`, branch `ihp-sg13cmos5l`, `d66cf17`, 2026-09-21) list `8x1`, `8x2` and **`8x4` (`1724.16 × 710.64 µm`, 1.225 mm²)** in `tech/ihp-sg13cmos5l/tile_sizes.yaml`. Command: `curl -s https://raw.githubusercontent.com/TinyTapeout/tt-support-tools/ihp-sg13cmos5l/tech/ihp-sg13cmos5l/tile_sizes.yaml`.
+- Other entries harden 8x4 with these tools and the stock `tt-gds-action@ihp-cmos5l` (TeslaCoilerOW `gds` runs succeed, 5-7.5 h each [Source: `gh run list -R TeslaCoilerOW/ttihp-protocol-emulator --workflow gds.yaml`]).
+- The template's `info.yaml` comment still lists sizes only up to 8x2; it is out of date.
+- `info.yaml` is therefore set to **8x4**, as the kickoff prompt asks when 8x4 is available. Ken Pettit's `kdp1965/tt-support-tools` branch `cmos-8x4` is no longer needed.
 
 ## Edits made after import
 
 | File | Edit | Why |
 |---|---|---|
-| `info.yaml` | `tiles: "1x1"` → `tiles: "6x4"` | largest size the official cmos5l tools support; 8x4 not yet official (above) |
+| `info.yaml` | `tiles: "1x1"` → `tiles: "6x4"` (2026-10-19) → `"8x4"` (2026-10-20) | 8x4 is supported by the official tools; the first value rested on a truncated check (above) |
 | `src/.gitkeep` | removed | `src/` now has template files |
 | `info.yaml` | title, author, description, clock_hz (48 MHz) filled in | the gds and docs workflows reject empty fields (CI run 39410242621) |
 | `docs/info.md` | placeholder sections replaced with a short description | the docs workflow rejects the template text |

@@ -4,6 +4,7 @@
 first actual failure."""
 MODEL = "spex/refsim/model.py"
 COMPILER = "spex/compiler/__init__.py"
+TABLES = "spex/refsim/tables.py"
 
 _MODEL_MUTANTS = [
     ("reset ignores trigger age", "R1.6", "ne.x[c] = 1 + a", "ne.x[c] = 1", "test_rules::test_R1_6"),
@@ -117,4 +118,10 @@ _COMPILER_MUTANTS = [
      "test_compiler::test_reject_time_base_conflict"),
 ]
 
-MUTANTS = [(MODEL,) + m for m in _MODEL_MUTANTS] + [(COMPILER,) + m for m in _COMPILER_MUTANTS]
+_TABLES_MUTANTS = [
+    ("window index MSB (edge bit 2) ignored on read", "R11.1/S42", "window=((w >> 2) & 1) << 3 | (w >> 19) & 7",
+     "window=(w >> 19) & 7", "test_rules::test_R11_1_window_index_msb"),
+]
+
+MUTANTS = ([(MODEL,) + m for m in _MODEL_MUTANTS] + [(COMPILER,) + m for m in _COMPILER_MUTANTS]
+           + [(TABLES,) + m for m in _TABLES_MUTANTS])

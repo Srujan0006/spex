@@ -292,10 +292,10 @@ def test_reject_two_data_pins_and_reserved_op():
 
 def test_reject_table_overflow():
     s = Spec("t", sides=["a"], pins={"P": 0}, clocks=["x"])
-    locs = [s.loc(f"L{i}") for i in range(10)] + [s.loc("H", halt=True)]
-    for i in range(10):
-        s.internal(locs[i], locs[i + 1] if i < 9 else locs[10], after=s.window("x", 10 + i, 10 + i), reset=["x"])
-    rejects(s, "check", match="more than 8 windows")
+    locs = [s.loc(f"L{i}") for i in range(18)] + [s.loc("H", halt=True)]
+    for i in range(18):
+        s.internal(locs[i], locs[i + 1], within=s.window("x", 10 + i, 10 + i), reset=["x"])
+    rejects(s, "check", match="more than 16 windows")
 
 
 # ---------------------------------------------------------------- S39 additions

@@ -8,7 +8,7 @@ project:
   clock_hz:     48000000       # Clock frequency in Hz (or 0 if not applicable)
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
-  tiles: "6x4"          # SPEX: official cmos5l template max is 6x4 (no 8x4 yet); see docs/notes/TT_TEMPLATE.md
+  tiles: "8x4"          # SPEX: 8x4 (1724.16 x 710.64 um), supported by the official cmos5l tools; see docs/notes/TT_TEMPLATE.md
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
   top_module:  "tt_um_example"

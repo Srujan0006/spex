@@ -4,15 +4,6 @@ Bus: wired-AND with pull-ups. Oracle agents see the line of the previous cycle; 
 pads (pad[n] = line in cycle n), as the hardware does."""
 import pytest
 
-# S40 (open): with the echo-dwell and silent-edge fixes found in step 5, the Standard-mode controller needs 9 window
-# entries; the FROZEN table has 8. These tests fail until the owner decides the table size.
-S40_WINDOWS = pytest.mark.xfail(reason="S40: Standard-mode I2C Drive-as-controller needs 9 windows, table has 8",
-                                strict=True)
-
-
-def std_xfail(mode):
-    return pytest.param(mode, marks=S40_WINDOWS) if mode == "standard" else mode
-
 import i2c as oracle
 from harness import START_CYCLE, HostOp, load, run_check
 from spec.i2c import ACK, NACK, NEXT, SR, START, STOP, i2c, limits
@@ -73,7 +64,7 @@ def host_stream(tokens, tx, first=5):
 
 
 # ---------------------------------------------------------------- Drive as controller
-@pytest.mark.parametrize("mode", [std_xfail("standard"), "fast"])
+@pytest.mark.parametrize("mode", ["standard", "fast"])
 @pytest.mark.parametrize("stretch", [0, 400])
 def test_drive_controller_write(mode, stretch):
     tgt = oracle.Target(0x50, MEM, stretch=stretch)
@@ -87,7 +78,7 @@ def test_drive_controller_write(mode, stretch):
     assert m.s.engines[0].rx == [0xA0, 0x10, 0xA5, 0x3C]
 
 
-@pytest.mark.parametrize("mode", [std_xfail("standard"), "fast"])
+@pytest.mark.parametrize("mode", ["standard", "fast"])
 def test_drive_controller_read_with_repeated_start(mode):
     tgt = oracle.Target(0x50, MEM, stretch=100)
     host = host_stream([START, NEXT, SR, ACK, NACK, STOP], [0xA0, 0x10, 0xFF, 0xA1, 0x00])
@@ -207,11 +198,7 @@ def test_check_planted_fault(fault):
 
 def test_location_count_and_table_use():
     assert len(i2c("standard").locs) == 37
-    c = comp("fast", "drive", "ctl")
-    assert sum(w is not None for w in c.image.windows) == 8                     # at the R11 limit
-    assert sum(k is not None for k in c.image.consts) == 8
-
-
-@S40_WINDOWS
-def test_standard_controller_fits_tables():
-    comp("standard", "drive", "ctl")
+    for mode, windows in (("standard", 9), ("fast", 8)):                    # S42: 16 entries available
+        c = comp(mode, "drive", "ctl")
+        assert sum(w is not None for w in c.image.windows) == windows
+        assert sum(k is not None for k in c.image.consts) == 8                  # at the R11 limit

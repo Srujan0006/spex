@@ -33,7 +33,7 @@ class ImageBuilder:
     def _win(self, w) -> int:
         c, lo, hi = w[:3]
         nom = w[3] if len(w) > 3 else lo
-        return self._idx(self.windows, Window(c, lo, hi, nom), 8)
+        return self._idx(self.windows, Window(c, lo, hi, nom), 16)
 
     def edge(self, src: int, target: int, pat: Optional[tuple] = None, ck: int = CK_NONE,
              win: Optional[tuple] = None, dk: int = DG_NONE, k: int = 0, act: Optional[Action] = None,

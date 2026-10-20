@@ -114,7 +114,6 @@ def test_duality_i2c_target(name, policy, seed):
     assert run_check(compile_spec(spec, "check"), w)[0] == []
 
 
-@pytest.mark.xfail(reason="S40: Standard-mode I2C Drive-as-controller needs 9 windows, table has 8", strict=True)
 def test_duality_i2c_standard_mode_controller():
     spec = i2c("standard")
     tgt = i2c_oracle.Target(0x50, MEM)

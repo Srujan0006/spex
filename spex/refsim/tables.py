@@ -1,6 +1,6 @@
 """SPEX table formats, written from docs/SEMANTICS.md §11 (v1). Field packing and unpacking only.
 
-Edge word (R11.1), action entry (R11.2), window (R11.3), pattern (R11.4), constant (R11.5),
+Edge word (R11.1, window index widened by S42), action entry (R11.2), window (R11.3), pattern (R11.4), constant (R11.5),
 location word (R11.6), engine configuration (R11.7).
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import List, Optional
 NUM_LOCS = 64
 NUM_SLOTS = 4
 NUM_ACTIONS = 16
-NUM_WINDOWS = 8
+NUM_WINDOWS = 16                # S42: 4-bit window index (edge word bit 2 is its MSB)
 NUM_PATTERNS = 8          # index 0 = "none"
 NUM_CONSTS = 8
 XBITS = 20
@@ -58,14 +58,17 @@ class Edge:
 
 
 def pack_edge(e: Edge) -> int:
-    return (_chk(e.target, 7, "target") << 25 | _chk(e.pattern, 3, "pattern") << 22 | _chk(e.window, 3, "window") << 19
+    _chk(e.window, 4, "window")
+    return (_chk(e.target, 7, "target") << 25 | _chk(e.pattern, 3, "pattern") << 22 | (e.window & 7) << 19
+            | (e.window >> 3) << 2
             | _chk(e.ck, 2, "ck") << 17 | _chk(e.dk, 3, "dk") << 14 | _chk(e.k, 3, "k") << 11
             | _chk(e.action, 4, "action") << 7 | _chk(e.reset, 3, "reset") << 4 | _chk(e.error, 1, "error") << 3
             | _chk(e.valid, 1, "valid") << 1 | _chk(e.log, 1, "log"))
 
 
 def unpack_edge(w: int) -> Edge:
-    return Edge(target=(w >> 25) & 0x7F, pattern=(w >> 22) & 7, window=(w >> 19) & 7, ck=(w >> 17) & 3,
+    return Edge(target=(w >> 25) & 0x7F, pattern=(w >> 22) & 7, window=((w >> 2) & 1) << 3 | (w >> 19) & 7,
+                ck=(w >> 17) & 3,
                 dk=(w >> 14) & 7, k=(w >> 11) & 7, action=(w >> 7) & 0xF, reset=(w >> 4) & 7,
                 error=(w >> 3) & 1, valid=(w >> 1) & 1, log=w & 1)
 
@@ -107,12 +110,12 @@ class Loc:
 
 
 def pack_loc(l: Loc) -> int:
-    return _chk(l.watch, 8, "watch") | _chk(l.inv_win, 3, "inv_win") << 8 | _chk(l.inv_en, 1, "inv_en") << 11 \
-        | _chk(l.halt, 1, "halt") << 12
+    return _chk(l.watch, 8, "watch") | _chk(l.inv_win, 4, "inv_win") << 8 | _chk(l.inv_en, 1, "inv_en") << 12 \
+        | _chk(l.halt, 1, "halt") << 13
 
 
 def unpack_loc(w: int) -> Loc:
-    return Loc(watch=w & 0xFF, inv_win=(w >> 8) & 7, inv_en=(w >> 11) & 1, halt=(w >> 12) & 1)
+    return Loc(watch=w & 0xFF, inv_win=(w >> 8) & 0xF, inv_en=(w >> 12) & 1, halt=(w >> 13) & 1)
 
 
 # ---------------------------------------------------------------- small tables (R11.3-R11.5)

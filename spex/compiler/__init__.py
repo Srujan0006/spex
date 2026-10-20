@@ -539,7 +539,7 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
     for l in spec.locs:                             # pass 1: windows read in full, so GE and invariants can share
         for ce in edges[l.name]:
             if ce.ck and ce.ck != "GE":
-                idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), 8, "windows")
+                idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), T.NUM_WINDOWS, "windows")
     for l in spec.locs:
         li = loc_index[l.name]
         es = edges[l.name]
@@ -552,9 +552,9 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
                 if ce.pmask else 0
             w = 0
             if ce.ck == "GE":                                 # GE reads only lo: reuse any window with that lo
-                w = next((i for i, x in enumerate(windows[:8]) if x.clock == ce.clock and x.lo == ce.lo), None)
+                w = next((i for i, x in enumerate(windows[:T.NUM_WINDOWS]) if x.clock == ce.clock and x.lo == ce.lo), None)
             if w is None or (ce.ck and ce.ck != "GE"):
-                w = idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), 8, "windows")
+                w = idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), T.NUM_WINDOWS, "windows")
             dk = DG_CODES[ce.dk] if ce.dk else T.DG_NONE
             k = 0
             if ce.dk == "EVENT":
@@ -571,9 +571,9 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
             w = l.invariant
             inv_en = 1
             c = spec.clocks.index(w.clock)
-            inv_w = next((i for i, x in enumerate(windows[:8]) if x.clock == c and x.hi == w.hi + s), None)
+            inv_w = next((i for i, x in enumerate(windows[:T.NUM_WINDOWS]) if x.clock == c and x.hi == w.hi + s), None)
             if inv_w is None:                                   # an invariant reads only hi: share an entry
-                inv_w = idx(windows, T.Window(c, w.lo + s, w.hi + s, w.lo + s), 8, "windows")
+                inv_w = idx(windows, T.Window(c, w.lo + s, w.hi + s, w.lo + s), T.NUM_WINDOWS, "windows")
         img.locs[li] = T.pack_loc(T.Loc(watch=spec.mask(l.watch) & ~unwatch & ~echo[l.name], inv_en=inv_en,
                                         inv_win=inv_w,
                                         halt=int(l.halt)))
