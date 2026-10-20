@@ -281,7 +281,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 - **R11.5 DECIDED (S28). Constant entry (8 per engine):** 16 bits.
 - **R11.6 DECIDED (S28, S42). Location word, 14 bits:** `[13]` halt, `[12]` invariant enable, `[11:8]` invariant window index (4 bits, S42), `[7:0]` watch mask.
 - **R11.7 DECIDED (S28). Engine configuration:** initial location, resync location + valid bit, resync action index, `msb_first`, `drive_en`, cover enable, trace enable, coverage scale s, pin base (R12.6).
-- **R11.8 DEFERRED (2026-11-14).** Where the window, pattern, constant, action and location tables live physically (flops or macro spare columns), and FIFO depths. The model uses the logical formats above. Location words do not fit in the two 64x64 edge macros (4 edges × 32 bits fill all 128 bits), so they need flops (64 × 14 = 896 bits) or a format change; this is an RTL-phase area question.
+- **R11.8 DEFERRED (2026-11-14) → brought forward 2026-10-20: proposed S43, awaiting the owner's decision; nothing below changes until then.** Where the window, pattern, constant, action and location tables live physically (flops or macro spare columns), and FIFO depths. The model uses the logical formats above. Location words do not fit in the two 64x64 edge macros (4 edges × 32 bits fill all 128 bits), so they need flops (64 × 14 = 896 bits) or a format change; this is an RTL-phase area question.
 
 ## 12. Reset, loading and host operations
 

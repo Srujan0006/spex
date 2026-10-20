@@ -1,0 +1,6 @@
+read_verilog ta_engine_v4b.v
+synth -top ta_engine_v4b -flatten
+dfflibmap -liberty lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+abc -liberty lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+opt_clean
+stat -liberty lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib

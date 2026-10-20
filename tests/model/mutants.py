@@ -115,6 +115,11 @@ _COMPILER_MUTANTS = [
      "if ce.pmask and b == \"E\":", "test_i2c_spec::test_drive_controller_read_with_repeated_start"),
     ("POLICY lo rejected instead of clipped", "S39", 'if ce.lo < need and ce.ck == "POLICY" and ce.hi >= need:',
      "if False:", "test_compiler::test_s39_policy_lo_clipped_with_warning"),
+    ("usage counts the placeholder window", "R11.8 report", "usage = table_usage(img, edges, len(windows))",
+     "usage = table_usage(img, edges, sum(w is not None for w in img.windows))",
+     "test_compiler::test_table_usage_report"),
+    ("usage counts the no-upper-bound marker", "R11.8 report", "for v in (w.lo, w.hi, w.nom) if v < T.XMAX]",
+     "for v in (w.lo, w.hi, w.nom)]", "test_compiler::test_table_usage_report"),
     ("time-base conflict accepted", "R7.7", "if len(b) != 1 or not b <= {\"E\", \"O\"}:", "if not b:",
      "test_compiler::test_reject_time_base_conflict"),
 ]

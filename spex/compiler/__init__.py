@@ -103,6 +103,29 @@ class Compiled:
     policy: Policy = Policy()
     role: str = "check"
     side: Optional[str] = None
+    usage: Optional[dict] = None
+
+
+def table_usage(img: T.EngineImage, edges: Dict[str, List[CEdge]], n_windows: int) -> dict:
+    """How much of each SEMANTICS §11 table an image uses (R11.8 sizing evidence), and the largest clock value any
+    guard, policy time or invariant compares against (the clock width a spec needs, S18)."""
+    used = lambda tbl: sum(x is not None for x in tbl)                 # noqa: E731
+    windows = [w for w in img.windows if w is not None]
+    return {
+        "locations": (used(img.locs), T.NUM_LOCS),
+        "edges": (sum(len(es) for es in edges.values()), T.NUM_LOCS * T.NUM_SLOTS),
+        "windows": (n_windows, T.NUM_WINDOWS),           # not the placeholder entry of a spec with no windows
+        "patterns": (used(img.patterns[1:]), T.NUM_PATTERNS - 1),
+        "constants": (used(img.consts), T.NUM_CONSTS),
+        "actions": (used(img.actions), T.NUM_ACTIONS),
+        # XMAX as hi means "no upper bound" (a saturating clock never exceeds it), not a value the clock must reach
+        "max_clock_value": max([v for w in windows[:n_windows] for v in (w.lo, w.hi, w.nom) if v < T.XMAX], default=0),
+    }
+
+
+def format_usage(u: dict) -> str:
+    parts = [f"{k} {u[k][0]}/{u[k][1]}" for k in ("locations", "edges", "windows", "patterns", "constants", "actions")]
+    return "  table use: " + ", ".join(parts) + f"; largest clock value {u['max_clock_value']}"
 
 
 # ------------------------------------------------------------------------------------------------ helpers
@@ -601,8 +624,9 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
                                 resync_action=resync_action, msb_first=int(spec.msb_first),
                                 drive_en=int(role == "drive"), cover_en=int(cover), trace_en=int(trace),
                                 cov_shift=cov_shift)
-    return Compiled(img, loc_index, edges, _listing(spec, edges, role, side, loc_index, warns), warns, policy,
-                    role, side)
+    usage = table_usage(img, edges, len(windows))
+    listing = _listing(spec, edges, role, side, loc_index, warns) + "\n" + format_usage(usage)
+    return Compiled(img, loc_index, edges, listing, warns, policy, role, side, usage)
 
 
 def _listing(spec, edges, role, side, loc_index, warns) -> str:

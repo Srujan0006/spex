@@ -344,3 +344,20 @@ def test_s39_ge_and_invariant_share_windows():
     s.observe(A, B, {"P": 0}, after=s.window("x", 10, 10))
     c = compile_spec(s, "check")
     assert sum(w is not None for w in c.image.windows) == 1
+
+
+def test_table_usage_report():
+    """R11.8 evidence: the listing's 'table use' line. Planted bug: tests/model/mutants.py ('usage counts the
+    placeholder window')."""
+    from spec.i2c import i2c
+    from spec.spi import spi
+    c = compile_spec(i2c("standard"), "drive", side="ctl")
+    u = c.usage
+    assert (u["locations"], u["windows"], u["constants"], u["actions"]) == ((37, 64), (9, 16), (8, 8), (15, 16))
+    assert u["max_clock_value"] == 455 and "table use: locations 37/64" in c.listing
+    s = compile_spec(spi(0), "check")
+    assert s.usage["max_clock_value"] == 12                                  # XMAX = "no upper bound", not counted
+    s2 = Spec("t", sides=["a"], pins={"P": 0}, clocks=["x"])
+    A, B = s2.loc("A", watch=["P"]), s2.loc("B", halt=True)
+    s2.observe(A, B, {"P": 1})
+    assert compile_spec(s2, "check").usage["windows"] == (0, 16)            # no windows: the placeholder is not use
