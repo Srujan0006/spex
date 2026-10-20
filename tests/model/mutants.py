@@ -5,6 +5,7 @@ first actual failure."""
 MODEL = "spex/refsim/model.py"
 COMPILER = "spex/compiler/__init__.py"
 TABLES = "spex/refsim/tables.py"
+TCK = "spex/tchecker/__init__.py"
 
 _MODEL_MUTANTS = [
     ("reset ignores trigger age", "R1.6", "ne.x[c] = 1 + a", "ne.x[c] = 1", "test_rules::test_R1_6"),
@@ -123,5 +124,12 @@ _TABLES_MUTANTS = [
      "window=(w >> 19) & 7", "test_rules::test_R11_1_window_index_msb"),
 ]
 
+_TCK_MUTANTS = [
+    ("urgency invariant dropped", "R3.1/R4.5 export", 'inv.append(f"{_ident(c.pop())}<={min(e.window.lo for e in out)}")',
+     "pass", "test_tchecker_export::test_uart_export_structure"),
+    ("bit counter not counted", "export", 'd.append(f"bitcnt=bitcnt+1")', "pass",
+     "test_tchecker_export::test_uart_export_structure"),
+]
+
 MUTANTS = ([(MODEL,) + m for m in _MODEL_MUTANTS] + [(COMPILER,) + m for m in _COMPILER_MUTANTS]
-           + [(TABLES,) + m for m in _TABLES_MUTANTS])
+           + [(TABLES,) + m for m in _TABLES_MUTANTS] + [(TCK,) + m for m in _TCK_MUTANTS])

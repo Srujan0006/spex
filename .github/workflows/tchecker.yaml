@@ -1,0 +1,34 @@
+name: tchecker
+on:
+  push:
+    paths:
+      - "spex/**"
+      - "spec/**"
+      - "scripts/*tchecker*"
+      - ".github/workflows/tchecker.yaml"
+  workflow_dispatch:
+
+jobs:
+  reach:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Cache TChecker
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: tchecker/install
+          key: tchecker-${{ hashFiles('scripts/build_tchecker.sh') }}
+      - name: Build TChecker
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q cmake flex bison libboost-all-dev catch2
+          ./scripts/build_tchecker.sh "$PWD/tchecker/install"
+      - name: Model-check the exported specs
+        run: python3 -B scripts/export_tchecker.py tck_out --tck-reach "$PWD/tchecker/install/bin/tck-reach"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: tchecker-models, path: tck_out }
