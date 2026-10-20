@@ -296,3 +296,51 @@ def test_reject_table_overflow():
     for i in range(10):
         s.internal(locs[i], locs[i + 1] if i < 9 else locs[10], after=s.window("x", 10 + i, 10 + i), reset=["x"])
     rejects(s, "check", match="more than 8 windows")
+
+
+# ---------------------------------------------------------------- S39 additions
+def s39_spec():
+    s = Spec("s39", sides=["a", "b"], pins={"P": 0, "Q": 1}, clocks=["x"])
+    A, B, C, D = s.loc("A", watch=["P", "Q"]), s.loc("B", watch=["P", "Q"]), s.loc("C", watch=["P", "Q"]), \
+        s.loc("D", halt=True)
+    w = s.window("x", 0, 20, nom=10)
+    s.emit(A, B, "a", {"P": 0}, mode=OD, token=1, cond={"Q": 1}, reset=["x"], label="pull with cond")
+    s.emit(B, C, "a", {"P": DATA}, mode=OD, at=w, token=2, silent=True, op=Op("LOAD_PEEK", "P"), label="silent 1")
+    s.emit(B, C, "a", {"P": 0}, mode=OD, at=w, token=3, silent=True, op=Op("CLR"), label="silent 2")
+    s.emit(C, D, "a", {"P": 1}, mode=OD, visible=True, at=s.window("x", 30, 40), label="visible release")
+    s.emit(C, D, "b", {"Q": 0}, mode=OD, on={"P": 0}, within=s.window("x", 30, 40), shadow=True, label="shadow")
+    return s
+
+
+def test_s39_cond_silent_visible_shadow_dedupe():
+    c = compile_spec(s39_spec(), "check")
+    a = c.edges["A"][0]
+    assert (a.pmask, a.pval) == (0b11, 0b10)                                  # SDA-like P low, cond Q high
+    b = c.edges["B"]
+    assert len(b) == 1 and b[0].cls == "internal" and (b[0].lo, b[0].hi) == (20, 20) and b[0].op == "CLR"
+    cc = c.edges["C"]
+    assert [(e.pmask, e.pval, e.otherwise) for e in cc] == [(1, 1, False), (1, 1, True)]   # e1 + e2; no shadow
+    d = compile_spec(s39_spec(), "drive", side="b")
+    assert [e.variant for e in d.edges["C"]] == ["observed emit e1", "own emit", "silent completion e2"]
+
+
+def test_s39_policy_lo_clipped_with_warning():
+    c = compile_spec(s39_spec(), "drive", side="a")
+    b = c.edges["B"]
+    assert all(e.lo == 2 for e in b) and any("clipped" in w for w in c.warnings)
+
+
+def test_s39_own_echo_unwatched_in_target():
+    c = compile_spec(s39_spec(), "drive", side="a")
+    watch = {n: c.image.locs[i] & 0xFF for n, i in c.loc_index.items()}
+    assert watch["B"] == 0b10 and watch["A"] == 0b11                          # P echo of A's emit ignored in B
+    assert compile_spec(s39_spec(), "check").image.locs[c.loc_index["B"]] & 0xFF == 0b11
+
+
+def test_s39_ge_and_invariant_share_windows():
+    s = Spec("t", sides=["a"], pins={"P": 0}, clocks=["x"])
+    A, B = s.loc("A", watch=["P"], invariant=s.window("x", 0, 40)), s.loc("B", halt=True)
+    s.observe(A, B, {"P": 1}, within=s.window("x", 10, 40))
+    s.observe(A, B, {"P": 0}, after=s.window("x", 10, 10))
+    c = compile_spec(s, "check")
+    assert sum(w is not None for w in c.image.windows) == 1

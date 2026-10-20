@@ -96,6 +96,10 @@ class SpecEdge:
     data: Optional[DataGuard] = None
     token: Optional[int] = None              # choice token (emits only)
     peek: bool = False                       # test the token without popping (R7.10)
+    cond: Dict[str, int] = field(default_factory=dict)        # extra line levels an observer also requires (S39)
+    silent: bool = False                     # observers judge it only at the window end (S39)
+    visible: bool = False                    # the spec asserts an OD release is seen on the line (S39)
+    shadow: bool = False                     # happens on another side's edge; observers ignore it (S39)
     op: Op = Op("NOP")
     reset: tuple = ()
     event: Optional[int] = None
@@ -156,9 +160,15 @@ class Spec:
              at: Optional[Window] = None, on: Optional[Dict[str, int]] = None, within: Optional[Window] = None,
              data: Optional[DataGuard] = None, token: Optional[int] = None, peek: bool = False,
              op: Op = Op("NOP"), reset: Iterable[str] = (), event: Optional[int] = None, log: bool = True,
-             error: bool = False, label: str = "") -> SpecEdge:
+             error: bool = False, label: str = "", cond: Optional[Dict[str, int]] = None, silent: bool = False,
+             visible: bool = False, shadow: bool = False) -> SpecEdge:
         """An emit by `side`: timed (`at` = POLICY window), reactive (`on` = EDGE trigger, optional `within`),
-        or data-triggered (`data` / `token` only)."""
+        or data-triggered (`data` / `token` only).
+        Observer-side options (S39): `cond` adds line levels to the observed pattern; `silent` makes observers
+        ignore the written pins and move on when the window closes; `visible` asserts an OD release (value 1)
+        is observable because nobody else holds the line; `shadow` marks an emit that rides on another side's edge
+        (for example a target releasing SDA as the controller pulls SCL low), so only the side that owns it
+        compiles it."""
         if side not in self.sides:
             raise SpecError(f"unknown side {side}")
         if not writes:
@@ -170,7 +180,10 @@ class Spec:
             if v not in (0, 1, DATA):
                 raise SpecError(f"write value of {p} must be 0, 1 or DATA")
         e = SpecEdge("emit", src, dst, side=side, writes=dict(writes), mode=mode, data=data, token=token, peek=peek,
-                     op=op, reset=tuple(reset), event=event, log=log, error=error, label=label)
+                     op=op, reset=tuple(reset), event=event, log=log, error=error, label=label,
+                     cond=self._pattern(cond or {}), silent=silent, visible=visible, shadow=shadow)
+        if silent and (at is None or reset):
+            raise SpecError("a silent emit needs a timed window (at=) and may not reset clocks")
         if at is not None:
             e.ck, e.window = "POLICY", self._win_ok(at)
         if on is not None:

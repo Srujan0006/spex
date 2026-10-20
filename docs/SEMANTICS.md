@@ -192,12 +192,19 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   - **reactive emit** (an EDGE trigger, R7.2) → an observe edge on its trigger pattern (and window, as WIN); its writes are dropped. The written pins' later change is not judged by this edge; a spec that wants it judged writes an observe edge for it (S37).
   - A data pin counts as visible in either write mode: an OD data bit 0 pulls low and 1 releases, and while one side transmits nobody else drives the line (S37).
   - **Visibility rule (compile error otherwise):** an observed emit that resets a clock must have a visible pin and must not need e2. The spec asserts that the line changes. If it does not, the observer reports TIMEOUT or UNEXPECTED, which is a true finding. Reason: a silent emit's instant is unknowable, so a clock reset on it would be guessed.
+- **R7.4a DECIDED (S39). Observer-side emit options.** An emit may carry:
+  - `cond` (pin levels): added to every observed pattern of the emit (a STOP is "SDA rises *while SCL is high*"); ignored in the owner's Drive role;
+  - `silent`: observers do not watch the written pins; the emit becomes an internal edge `WIN [hi, hi]` (the emit has surely happened when the window closes). Used where two devices hand a line over inside one window (I2C after an acknowledge). May not reset clocks;
+  - `visible`: the spec asserts that an OD release (value 1) is seen on the line, so it is observed like a pull (I2C STOP);
+  - `shadow`: the emit rides on another side's edge (an I2C target releasing SDA as the controller pulls SCL low); it is compiled only for its owner's Drive role.
+- **R7.4b DECIDED (S39). Duplicate observer edges.** After expansion, an observer edge is dropped if an earlier edge of the same location has the same target, action, resets, error bit and otherwise mark, and either the same guard or (both otherwise) the same clock and data guard with no pin guard. Such an edge can never fire.
 - **R7.5 DECIDED (S30). Observe and internal edges** are compiled unchanged in every role, apart from R7.7.
 - **R7.6 DECIDED (S30). Watch masks.** In Drive as S, pins that S drives push-pull anywhere in the spec are removed from every watch mask (the chip does not check itself). Open-drain pins stay watched as written.
+- **R7.6a DECIDED (S39). Own echo.** In Drive as S, every pin an own emit writes (PP or OD) is also removed from the watch mask of that emit's target location: the chip's own change reaches its pin bus D = 3 cycles later and must not be judged as UNEXPECTED. Open-drain pins stay watched elsewhere.
 - **R7.7 DECIDED (S30). Time-base compensation (Drive only).** Spec windows are written in *line time*: the time between line events at the pads. The engine sees an own emit fired in cycle n on the line at n+1 and observes a line event at pad time t on the pin bus at t+2. So, with `D = 3` (1 output register + 2 synchroniser cycles):
   - each (location, clock) gets a *base*: `E` if the clock was last reset by an own emit with no trigger pin (or by engine start in Drive), `O` if by an observe edge, an observed emit, or any edge with a trigger pin; an internal edge passes on the base of its guard clock. Internal edges with no clock guard may not reset clocks (compile error). Conflicting bases on different incoming paths are a compile error.
-  - an **observe** edge (and an invariant) on an `E`-based clock: window `[lo + D, hi + D]`;
-  - an **own emit** on an `O`-based clock: window `[lo − D, hi − D]` (nom too); if that breaks R4.5 the spec asks for a reaction faster than the chip and is rejected;
+  - an **observe** edge, an edge derived from an observed emit (including silent and invisible ones, S39), and an invariant, on an `E`-based clock: window `[lo + D, hi + D]`;
+  - an **own emit** on an `O`-based clock: window `[lo − D, hi − D]` (nom too); if `hi` falls below the R4.5 bound the spec asks for a reaction faster than the chip and is rejected; if only `lo` does, `lo` is clipped (R7.12c).
   - otherwise unchanged. In Check every clock is `O`-based and nothing changes.
   - The resync location is excluded from base inference; it may have no clock guard and no invariant (compile error otherwise).
 - **R7.8 FROZEN. Choice points**: nondeterministic branches tagged with tokens.
@@ -213,6 +220,8 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 
   Anything else is rejected, with the two edges named. The check is sufficient, not complete: it may reject a deterministic spec, never accept a nondeterministic one.
 - **R7.12 DECIDED. Other compiler checks** (each has a test that a bad spec is rejected): fan-out ≤ 4 after the R7.4 expansion, or a chain split listed with its cost (each hop adds E + 1 = 2 cycles and the extra latency of R4.4); R4.5 bounds; the visibility rule; time-base conflicts; nom ∈ [lo, hi]; halt (R3.4); resync location (R7.7); reserved ops; one data pin per emit.
+- **R7.12c DECIDED (S39). POLICY lower bound.** For a POLICY edge whose `lo` is below the R4.5 bound but whose `hi` is not, the compiler raises `lo` (and `nom` if needed) to the bound and lists a warning: the chip cannot emit at the spec's earliest instant, so Stress "earliest" tests the clipped bound. GE and WIN edges below the bound remain errors.
+- **R7.12d DECIDED (S39). Table sharing.** GE guards read only `lo` and invariants only `hi`, so they reuse any window entry with the same clock and that bound.
 - **R7.12a DECIDED (S36).** Fan-out above 4 after expansion is a compile error that names the location and the cost a chain split would have (E + 1 = 2 cycles per hop). Automatic chain splitting is not implemented; revisit if a protocol spec needs it (S15 count, week 2).
 - **R7.12b DECIDED (S37).** Locations unreachable from the initial and resync locations are listed as warnings and excluded from time-base inference.
 - **R7.13 DECIDED.** The compiler listing reports, per location: edges after expansion, locations that can fire in their first evaluation cycle, and the latency bound of R4.4.

@@ -67,6 +67,7 @@ class CEdge:
     error: int = 0
     log: int = 1
     otherwise: bool = False
+    observed: bool = False           # derived from an observed emit (judged in observation time, R7.7)
 
     def action_key(self):
         return (self.wm, self.wv, self.wmode, self.d, self.op, self.ev, self.emit, self.pop)
@@ -177,6 +178,16 @@ def _expand(spec: Spec, e: SpecEdge, role: str, side: Optional[str], errs: List[
         _op(spec, ce, e.op, errs)
         return [ce]
     # observed emit (R7.4)
+    if e.shadow:                                       # S39: observers see the other side's edge instead
+        return []
+    out = _observed(spec, e, errs, data_pins)
+    for ce in out:
+        ce.observed = True
+    return out
+
+
+def _observed(spec: Spec, e: SpecEdge, errs: List[str], data_pins) -> List[CEdge]:
+    P = spec.pins
     op = dsl.Op(OBSERVED_OP.get(e.op.kind, e.op.kind), e.op.pin)
     if e.pins:                                         # reactive emit: observe its trigger
         ce = _common(spec, e, "observed reactive emit", "obs")
@@ -185,7 +196,15 @@ def _expand(spec: Spec, e: SpecEdge, role: str, side: Optional[str], errs: List[
         _data(ce, e.data, False)
         _op(spec, ce, op, errs)
         return [ce]
-    vis_const = {p: v for p, v in e.writes.items() if v != DATA and (e.mode != OD or v == 0)}
+    if e.silent:                                       # S39: judged only when the window closes
+        ce = _common(spec, e, "observed silent emit", "internal")
+        _win(spec, ce, "WIN", e.window)
+        ce.lo = ce.nom = ce.hi
+        _data(ce, e.data, False)
+        _op(spec, ce, op, errs)
+        return [ce]
+    vis_const = {p: v for p, v in e.writes.items() if v != DATA and (e.mode != OD or v == 0 or e.visible)}
+    vis_const.update({p: v for p, v in e.cond.items() if p not in e.writes})          # S39 cond
     dpin = data_pins[0] if data_pins else None
     ck_win = "WIN" if e.window else None
     if not vis_const and dpin is None:
@@ -230,7 +249,9 @@ def _expand(spec: Spec, e: SpecEdge, role: str, side: Optional[str], errs: List[
 
 def _op(spec: Spec, ce: CEdge, op: dsl.Op, errs: List[str]) -> None:
     ce.op = op.kind
-    if op.pin is not None:
+    if op.kind not in ("SHIN",) + DATA_OPS:
+        ce.d = 0                                     # the data-pin field is unused: keep actions comparable
+    elif op.pin is not None:
         ce.d = spec.pins[op.pin]
     elif op.kind in ("SHIN",) + DATA_OPS:
         errs.append(f"{ce.origin.label}: op {op.kind} needs a data pin")
@@ -298,15 +319,17 @@ def _time_base(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str]) -> No
             if b is None:
                 continue
             shift = 0
-            if ce.pmask and b == "E":
+            if (ce.pmask or ce.observed) and b == "E":
                 shift = D_OBS
             elif ce.cls == "own" and not ce.pmask and b == "O":
                 shift = -D_OBS
             if shift:
                 ce.lo, ce.hi, ce.nom = ce.lo + shift, ce.hi + shift, ce.nom + shift
-                if ce.lo < 0:
+                if ce.hi < 0 or (ce.lo < 0 and ce.ck != "POLICY"):
                     errs.append(f"{ce.origin.label}: own emit {D_OBS} cycles after an observed event needs "
-                                f"lo >= {D_OBS}; the chip cannot react that fast (R7.7)")
+                                f"hi >= {D_OBS}; the chip cannot react that fast (R7.7)")
+                elif ce.lo < 0:                               # S39: clipped further by the R4.5 check
+                    ce.lo, ce.nom = 0, max(ce.nom, 0)
     inv_shift = {}
     for l in spec.locs:
         if l.invariant is not None and l.name in live:
@@ -314,6 +337,35 @@ def _time_base(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str]) -> No
             b = base_of(l, c, f"invariant of {l.name}")
             inv_shift[l.name] = D_OBS if b == "E" else 0
     return inv_shift
+
+
+# ------------------------------------------------------------------------------------------------ S39 dedupe
+def _guard_key(e: CEdge):
+    return (e.pmask, e.pval & e.pmask, e.pmode if e.pmask else 0, e.ck, e.clock if e.ck else 0,
+            e.lo if e.ck else 0, e.hi if e.ck else 0, e.dk, e.dval if e.dk else 0)
+
+
+def _same_effect(a: CEdge, b: CEdge) -> bool:
+    return (a.dst is b.dst and a.action_key() == b.action_key() and a.reset == b.reset and a.error == b.error
+            and a.otherwise == b.otherwise and a.cls != "own" and b.cls != "own")
+
+
+def _dedupe(es: List[CEdge]) -> List[CEdge]:
+    """Drop an observer edge that can never fire: an earlier edge has the same effect and the same guard, or
+    (both otherwise) the same clock and data guard with no pin guard at all."""
+    out: List[CEdge] = []
+    for e in es:
+        redundant = False
+        for a in out:
+            if not _same_effect(a, e):
+                continue
+            ka, ke = _guard_key(a), _guard_key(e)
+            if ka == ke or (a.otherwise and a.pmask == 0 and ka[3:] == ke[3:]):
+                redundant = True
+                break
+        if not redundant:
+            out.append(e)
+    return out
 
 
 # ------------------------------------------------------------------------------------------------ R7.11
@@ -385,6 +437,11 @@ def _exactness(spec: Spec, edges: Dict[str, List[CEdge]], errs: List[str], warns
                              f"{ce.src.name}; exact firing not checked (R4.5)")
                 continue
             need = E_ENTRY + 1 + (MAX_AGE if any(pin and (r >> ce.clock) & 1 for r, pin in inc) else 0)
+            if ce.lo < need and ce.ck == "POLICY" and ce.hi >= need:          # S39: clip, do not reject
+                warns.append(f"{ce.origin.label}: earliest emit clipped from lo = {ce.lo} to {need}; the spec's "
+                             f"lower edge cannot be reached exactly (R4.5)")
+                ce.lo, ce.nom = need, max(ce.nom, need)
+                continue
             if ce.lo < need:
                 errs.append(f"{ce.origin.label}: clock-triggered edge needs lo >= {need} (E+1"
                             f"{'+2: a pin-triggered edge resets the clock' if need > 2 else ''}); has lo = {ce.lo} "
@@ -419,10 +476,13 @@ def compile_spec(spec: Spec, role: str = "check", side: Optional[str] = None, po
 
     # watch masks (R7.6)
     unwatch = 0
+    echo: Dict[str, int] = {l.name: 0 for l in spec.locs}
     if role == "drive":
         for e in spec.edges:
-            if e.kind == "emit" and e.side == side and e.mode != OD:
-                unwatch |= spec.mask(e.writes)
+            if e.kind == "emit" and e.side == side:
+                if e.mode != OD:
+                    unwatch |= spec.mask(e.writes)
+                echo[e.dst.name] |= spec.mask(e.writes)   # S39: own echo arrives D cycles later (R7.6)
 
     # time base (R7.7), Drive only
     inv_shift = {}
@@ -432,7 +492,8 @@ def compile_spec(spec: Spec, role: str = "check", side: Optional[str] = None, po
     # slot order (otherwise last, R7.9), fan-out (R2.2), halt (R3.4), resync (R7.7)
     for l in spec.locs:
         es = edges[l.name]
-        edges[l.name] = [e for e in es if not e.otherwise] + [e for e in es if e.otherwise]
+        es = _dedupe([e for e in es if not e.otherwise] + [e for e in es if e.otherwise])
+        edges[l.name] = es
         if len(es) > T.NUM_SLOTS:
             errs.append(f"{l.name}: {len(es)} outgoing edges after role expansion > 4 (R2.2); a chain split would "
                         f"cost E+1 = 2 cycles per hop and is not automated (S36)")
@@ -452,10 +513,10 @@ def compile_spec(spec: Spec, role: str = "check", side: Optional[str] = None, po
         _determinism(l, edges[l.name], role, errs)
     if errs:
         raise CompileError(errs)
-    return _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, cov_shift, warns)
+    return _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, cov_shift, warns, echo)
 
 
-def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, cov_shift, warns) -> Compiled:
+def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, cov_shift, warns, echo) -> Compiled:
     errs: List[str] = []
     img = T.EngineImage()
     loc_index = {l.name: i for i, l in enumerate(spec.locs)}
@@ -472,16 +533,12 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
         i = tbl.index(v)
         return i + first if i < limit else 0          # placeholder; the error is raised below
 
+    for l in spec.locs:                             # pass 1: windows read in full, so GE and invariants can share
+        for ce in edges[l.name]:
+            if ce.ck and ce.ck != "GE":
+                idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), 8, "windows")
     for l in spec.locs:
         li = loc_index[l.name]
-        inv_en, inv_w = 0, 0
-        if l.invariant is not None:
-            s = inv_shift.get(l.name, 0)
-            w = l.invariant
-            inv_en = 1
-            inv_w = idx(windows, T.Window(spec.clocks.index(w.clock), w.lo + s, w.hi + s, w.lo + s), 8, "windows")
-        img.locs[li] = T.pack_loc(T.Loc(watch=spec.mask(l.watch) & ~unwatch, inv_en=inv_en, inv_win=inv_w,
-                                        halt=int(l.halt)))
         es = edges[l.name]
         for s in range(T.NUM_SLOTS):
             if s >= len(es):
@@ -490,7 +547,11 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
             ce = es[s]
             p = idx(patterns, T.Pattern(ce.pmask, ce.pval & ce.pmask, ce.pmode), 7, "pin patterns", 1) \
                 if ce.pmask else 0
-            w = idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), 8, "windows") if ce.ck else 0
+            w = 0
+            if ce.ck == "GE":                                 # GE reads only lo: reuse any window with that lo
+                w = next((i for i, x in enumerate(windows[:8]) if x.clock == ce.clock and x.lo == ce.lo), None)
+            if w is None or (ce.ck and ce.ck != "GE"):
+                w = idx(windows, T.Window(ce.clock, ce.lo, ce.hi, ce.nom), 8, "windows")
             dk = DG_CODES[ce.dk] if ce.dk else T.DG_NONE
             k = 0
             if ce.dk == "EVENT":
@@ -501,6 +562,18 @@ def _encode(spec, edges, role, side, unwatch, inv_shift, policy, cover, trace, c
             img.edges[li * 4 + s] = T.pack_edge(T.Edge(target=loc_index[ce.dst.name], pattern=p, window=w,
                                                        ck=CK_CODES[ce.ck], dk=dk, k=k, action=a, reset=ce.reset,
                                                        error=ce.error, valid=1, log=ce.log))
+        inv_en, inv_w = 0, 0
+        if l.invariant is not None:
+            s = inv_shift.get(l.name, 0)
+            w = l.invariant
+            inv_en = 1
+            c = spec.clocks.index(w.clock)
+            inv_w = next((i for i, x in enumerate(windows[:8]) if x.clock == c and x.hi == w.hi + s), None)
+            if inv_w is None:                                   # an invariant reads only hi: share an entry
+                inv_w = idx(windows, T.Window(c, w.lo + s, w.hi + s, w.lo + s), 8, "windows")
+        img.locs[li] = T.pack_loc(T.Loc(watch=spec.mask(l.watch) & ~unwatch & ~echo[l.name], inv_en=inv_en,
+                                        inv_win=inv_w,
+                                        halt=int(l.halt)))
     resync_action = 0
     if spec.resync_loc is not None and role == "drive" and side in spec.resync_writes:
         wr, mode = spec.resync_writes[side]

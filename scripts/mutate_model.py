@@ -32,6 +32,11 @@ def run(i):
 
 
 def main():
+    base = subprocess.run([sys.executable, "-B", "-m", "pytest", "-x", "-q", "tests/model"], cwd=ROOT,
+                          capture_output=True, text=True)
+    if base.returncode != 0:                       # a red baseline would "kill" every mutant
+        print("baseline tests fail; fix them before the mutation run\n" + base.stdout[-2000:])
+        return 2
     with cf.ProcessPoolExecutor() as ex:
         results = list(ex.map(run, range(len(MUTANTS))))
     for r in results:

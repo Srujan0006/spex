@@ -20,7 +20,7 @@ To change an approved decision, add a new entry that supersedes it; do not edit 
 | S12 | 8x4 primary; Plan B (3 macros, shared, E = 2) and Plan C (1 engine, 6x4-capable) as fallbacks | Approved | 2026-10-19 | proposal §4 |
 | S13 | Week-1 dummy-macro floorplan harden, part of Gate A | Approved | 2026-10-19 | review round 1, Con 6 |
 | S14 | RTL language: SystemVerilog (reuse the DTC harness) or Hardcaml | **Open**; decide by 2026-11-14 | | DTC D4 carried over |
-| S15 | 64 locations enough for a full I2C target? Otherwise engine 0 uses 2 × 256x64 | **Open**; decide by count in week 2 | | proposal §9 risks |
+| S15 | 64 locations enough for a full I2C target? Otherwise engine 0 uses 2 × 256x64 | Superseded by S40 | 2026-10-20 | proposal §9 risks |
 | S16 | Spec DSL embedded in Python (OCaml front end optional later) | Proposed | 2026-10-19 | proposal §5 |
 | S17 | Cycle convention from DTC: cycle n = interval after rising edge n; `step()` = one edge; pad change in cycle n reaches the pin bus in n+2 | Approved | 2026-10-19 | SEMANTICS R0.1-R0.4, R4.3 |
 | S18 | No clock prescaler in v1 (20 bits at 48 MHz = 21.8 ms); revisit by 2026-11-14 if a held-out protocol needs more | Approved | 2026-10-19 | R1.3 |
@@ -44,3 +44,5 @@ To change an approved decision, add a new entry that supersedes it; do not edit 
 | S36 | Fan-out > 4 after role expansion is a compile error with the chain-split cost reported; automatic chain split not implemented until a spec needs it | Approved | 2026-10-20 | R7.12a |
 | S37 | Compiler details within R7: reactive emits are observed by their trigger; data pins are visible in OD mode too; unreachable locations warned and skipped in time-base inference; engines start in cycle ≥ 3 (R12.7) | Approved | 2026-10-20 | R7.4, R7.12b, R12.7 |
 | S38 | Datapath op 9 = PUSH_LOAD_PEEK (full-duplex byte boundary for an SPI target); CRC ops move to 10-15 | Approved | 2026-10-20 | R2.10 |
+| S39 | Compiler details for shared open-drain buses: emit options cond / silent / visible / shadow, duplicate observer edges dropped, own echo unwatched in the emit's target, observed-derived edges time-compensated, POLICY lo clipped with a warning, GE/invariant window sharing | Approved | 2026-10-20 | R7.4a, R7.4b, R7.6a, R7.7, R7.12c, R7.12d |
+| S40 | 64 locations are enough for the week-1 protocols [Measured: UART 6, SPI target 5-6, I2C controller+target 37 locations]. The binding limit is the small tables: I2C Drive-as-controller uses 8/8 windows, 8/8 constants and 15/16 actions. Revisit the table sizes (edge word bit 2 is free; a 4th window-index bit would allow 16 windows) before RTL, by 2026-11-14 | Approved (count); table sizes **Open** | 2026-10-20 | tests/model/test_*_spec.py `test_location_count*` |
