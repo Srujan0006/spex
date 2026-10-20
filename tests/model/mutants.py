@@ -58,6 +58,8 @@ _MODEL_MUTANTS = [
      "test_rules::test_R12_start_stop"),
     ("BITCNT_LT is <=", "R2.6", "return ce.bitcnt < (K & 0xFF)", "return ce.bitcnt <= (K & 0xFF)",
      "test_rules::test_R2_6_data_guards"),
+    ("PUSH_LOAD_PEEK drives the old SR", "R2.10/S38", "push()\n            load()\n            dbit = outbit(ne.sr)",
+     "dbit = outbit(ne.sr)\n            push()\n            load()", "test_rules::test_R2_10_push_load_peek"),
     ("violation does not count", "R6.3", "ne.viol_count = min(ne.viol_count + 1, 0xFFFF)", "pass",
      "test_rules::test_R6_5"),
 ]

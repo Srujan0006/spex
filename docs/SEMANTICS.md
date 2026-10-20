@@ -70,7 +70,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 - **R2.9 DECIDED (S32). Pin writes** use *line values*. An action names a pin mask `Wm`, a value `Wv`, and a mode:
   - `PP` (push-pull): for p in Wm, `out[p] := Wv[p]`, `oe[p] := 1`.
   - `OD` (open drain): for p in Wm, `out[p] := 0`, `oe[p] := NOT Wv[p]` (value 0 pulls low, value 1 releases).
-  - If the action's datapath op drives a data pin d (SHOUT, PEEK, LOAD_PEEK; §2.10), `Wv[d]` is replaced by the data bit, then the mode applies.
+  - If the action's datapath op drives a data pin d (SHOUT, PEEK, LOAD_PEEK, PUSH_LOAD_PEEK; §2.10), `Wv[d]` is replaced by the data bit, then the mode applies.
   - The write takes effect in `S_{n+1}` (R0.3). Pins not in Wm keep `out`, `oe`.
 - **R2.10 DECIDED (S33). Datapath (per engine).** `SR` 8 bits, `bitcnt` 0..63 saturating, TX FIFO, RX FIFO (bytes), token FIFO (bytes). Bit order is an engine configuration bit `msb_first` (from the spec). The *out-bit* is `SR[7]` if `msb_first` else `SR[0]`. Shifting in bit b: `SR := ((SR << 1) | b) & 0xFF` if msb_first, else `(SR >> 1) | (b << 7)`. Shifting out: same with b = 1 (the vacated bit fills with 1, the idle level of UART). `d` is the action's data-pin field. Ops (4-bit code):
 
@@ -85,7 +85,8 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   | 6 | PEEK | pin d := out-bit; SR and bitcnt unchanged |
   | 7 | LOAD_PEEK | LOAD, then pin d := out-bit of the *new* SR |
   | 8 | CLR | `bitcnt := 0` |
-  | 9-15 | reserved | CRC ops (DEFERRED 2026-11-30); executing a reserved op is a compile error and a NOP in the model |
+  | 9 | PUSH_LOAD_PEEK | PUSH, then LOAD, then pin d := out-bit of the new SR (full-duplex byte boundary of an SPI target; S38) |
+  | 10-15 | reserved | CRC ops (DEFERRED 2026-11-30); executing a reserved op is a compile error and a NOP in the model |
 
 ## 3. Firing (the evaluation algorithm)
 
@@ -179,7 +180,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
   - *observe*: a pin guard on the line, with an optional window; no pin writes; no owner;
   - *internal*: no pin guard and no pin writes (clock or data guard only).
 - **R7.3 DECIDED (S30). Own emits** (owner = the chip's side, Drive role): compiled as written. Token guards are kept (R7.10).
-- **R7.4 DECIDED (S30). Observed emits** (owner ≠ the chip's side, or any emit in Check). Pin writes are removed, token guards and data guards on the owner's private state (TXF_NE, TOKEN) are dropped, `POLICY` becomes `WIN` on the same window, and datapath ops are mapped: `SHOUT d → SHIN d`, `LOAD → CLR`, `LOAD_PUSH → PUSH`, `PEEK → NOP`, `LOAD_PEEK → CLR`. The written pins are split:
+- **R7.4 DECIDED (S30). Observed emits** (owner ≠ the chip's side, or any emit in Check). Pin writes are removed, token guards and data guards on the owner's private state (TXF_NE, TOKEN) are dropped, `POLICY` becomes `WIN` on the same window, and datapath ops are mapped: `SHOUT d → SHIN d`, `LOAD → CLR`, `LOAD_PUSH → PUSH`, `PEEK → NOP`, `LOAD_PEEK → CLR`, `PUSH_LOAD_PEEK → PUSH`. The written pins are split:
   - *visible* pins: PP writes, and OD writes of value 0 (pull low);
   - *invisible*: OD writes of value 1 (release). Another device may hold the line low, so a release is not an observation.
 

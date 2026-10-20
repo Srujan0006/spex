@@ -23,8 +23,9 @@ D_OBS = 3                      # 1 output register + 2 synchroniser cycles (R7.7
 MAX_AGE = 2
 
 OP_CODES = {n: i for i, n in enumerate(dsl.OPS)}
-OBSERVED_OP = {"SHOUT": "SHIN", "LOAD": "CLR", "LOAD_PUSH": "PUSH", "PEEK": "NOP", "LOAD_PEEK": "CLR"}   # R7.4
-DATA_OPS = ("SHOUT", "PEEK", "LOAD_PEEK")
+OBSERVED_OP = {"SHOUT": "SHIN", "LOAD": "CLR", "LOAD_PUSH": "PUSH", "PEEK": "NOP", "LOAD_PEEK": "CLR",
+               "PUSH_LOAD_PEEK": "PUSH"}   # R7.4
+DATA_OPS = ("SHOUT", "PEEK", "LOAD_PEEK", "PUSH_LOAD_PEEK")
 DG_CODES = {"BITCNT_EQ": T.DG_BITCNT_EQ, "BITCNT_LT": T.DG_BITCNT_LT, "SR_MATCH": T.DG_SR_MATCH,
             "SR_NOMATCH": T.DG_SR_NOMATCH, "EVENT": T.DG_EVENT, "TXF_NE": T.DG_TXF_NE, "TOKEN": T.DG_TOKEN}
 CK_CODES = {None: T.CK_NONE, "GE": T.CK_GE, "WIN": T.CK_WIN, "POLICY": T.CK_POLICY}
@@ -231,7 +232,7 @@ def _op(spec: Spec, ce: CEdge, op: dsl.Op, errs: List[str]) -> None:
     ce.op = op.kind
     if op.pin is not None:
         ce.d = spec.pins[op.pin]
-    elif op.kind in ("SHIN", "SHOUT", "PEEK", "LOAD_PEEK"):
+    elif op.kind in ("SHIN",) + DATA_OPS:
         errs.append(f"{ce.origin.label}: op {op.kind} needs a data pin")
 
 

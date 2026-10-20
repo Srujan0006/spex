@@ -19,7 +19,7 @@ from typing import List, Optional
 
 from .tables import (CK_GE, CK_NONE, CK_POLICY, CK_WIN, DG_BITCNT_EQ, DG_BITCNT_LT, DG_EVENT, DG_NONE,
                      DG_SR_MATCH, DG_SR_NOMATCH, DG_TOKEN, DG_TXF_NE, EDGE, NUM_SLOTS, OD, OP_CLR, OP_LOAD,
-                     OP_LOAD_PEEK, OP_LOAD_PUSH, OP_NOP, OP_PEEK, OP_PUSH, OP_SHIN, OP_SHOUT, POL_EARLIEST,
+                     OP_LOAD_PEEK, OP_LOAD_PUSH, OP_NOP, OP_PEEK, OP_PUSH, OP_PUSH_LOAD_PEEK, OP_SHIN, OP_SHOUT, POL_EARLIEST,
                      POL_LATEST, POL_NOMINAL, POL_RANDOM, POL_SWEEP, XMAX, EngineImage, unpack_action,
                      unpack_edge, unpack_loc)
 
@@ -457,7 +457,11 @@ class Spex:
             dbit = outbit(ne.sr)
         elif op == OP_CLR:
             ne.bitcnt = 0
-        # reserved ops 9-15: NOP in the model (R2.10)
+        elif op == OP_PUSH_LOAD_PEEK:
+            push()
+            load()
+            dbit = outbit(ne.sr)
+        # reserved ops 10-15: NOP in the model (R2.10)
         wm = a.wm
         if dbit is not None:
             wv = (wv & ~(1 << d)) | (dbit << d)

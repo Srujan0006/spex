@@ -347,3 +347,18 @@ def test_R6_4_trace_overflow_flag():
     m.s.engines[0].image = b.build()
     run(m, 20, lambda n: 0, START)
     assert len(m.s.trace) == 3 and m.s.engines[0].flags & F_TRACE_LOST
+
+
+def test_R2_10_push_load_peek():
+    """S38: push the received byte, load the next TX byte, drive its out-bit."""
+    from spex.refsim import OP_PUSH_LOAD_PEEK
+    b = ImageBuilder()
+    b.loc(0)
+    b.edge(0, 1, ck=CK_GE, win=(0, 3, 3), act=Action(wm=0b100, op=OP_PUSH_LOAD_PEEK, d=2))
+    idle_loc(b, 1)
+    m = start(b.build(msb_first=1))
+    m.s.engines[0].sr, m.s.engines[0].tx, m.s.engines[0].bitcnt = 0x3C, [0x80, 0x01], 8
+    rows = run(m, 8, lambda n: 0, START)
+    e = m.s.engines[0]
+    assert e.rx == [0x3C] and e.sr == 0x80 and e.tx == [0x01] and e.bitcnt == 0
+    assert rows[-1].out & 0b100 and rows[-1].oe & 0b100

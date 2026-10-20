@@ -43,3 +43,4 @@ To change an approved decision, add a new entry that supersedes it; do not edit 
 | S35 | Reaction latency is L + d with d ∈ {0,1,2} (+2 per extra carry); v0's "L or L+E" missed carry-over | Approved (owner, 2026-10-19) | 2026-10-19 | R4.4, example 13.1 a3 |
 | S36 | Fan-out > 4 after role expansion is a compile error with the chain-split cost reported; automatic chain split not implemented until a spec needs it | Approved | 2026-10-20 | R7.12a |
 | S37 | Compiler details within R7: reactive emits are observed by their trigger; data pins are visible in OD mode too; unreachable locations warned and skipped in time-base inference; engines start in cycle ≥ 3 (R12.7) | Approved | 2026-10-20 | R7.4, R7.12b, R12.7 |
+| S38 | Datapath op 9 = PUSH_LOAD_PEEK (full-duplex byte boundary for an SPI target); CRC ops move to 10-15 | Approved | 2026-10-20 | R2.10 |
