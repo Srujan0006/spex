@@ -181,3 +181,22 @@ Effective utilisation 0.450. Detailed routing 10:22:48–11:47:04 on 4 threads: 
 limit). The flow then stopped at `Checker.DisconnectedPins`: VDDARRAY! of the 64x16 location-word macro was not in
 `PDN_MACRO_CONNECTIONS` (BUGS 25, fixed in the generator). Mid-PnR STA before detailed routing showed a few setup
 violations (slow 3, typical 1) and hold violations on all corners; post-route numbers come with the rerun.
+
+## fp_one_engine rerun (CI 39612722226, 2026-10-21): routed, LVS clean, timing fails
+
+Read with `fp_report.yaml` (CI 39640218641), because the 149 MB `runs/` artifact does not download reliably here.
+Routing DRC 0, LVS 0 errors, utilisation 0.524 (std cells 0.448); 4 nets with antenna violations (antenna repair was
+capped at one re-route). Post-route STA at 20 ns [Measured]:
+
+| Corner | Setup WS | Setup violations (reg-to-reg) | Hold WS | Hold violations | Max slew / max cap |
+|---|---|---|---|---|---|
+| slow 1.08 V 125 °C | **−1.593 ns** (≈ −0.79 ns at 20.8 ns) | 125 (1) | +0.475 ns | 0 | 167 / 20 |
+| typical 1.20 V 25 °C | +5.009 ns | 0 | +0.146 ns | 0 | 80 / 20 |
+| fast 1.32 V −40 °C | +9.089 ns | 0 | **−0.060 ns** | 2 | 52 / 21 |
+
+The worst setup path starts at the input port `uio_in[0]` (4 ns external input delay from the generic SDC), goes
+through the filler's combinational input mixing, and has a `nor3_1` driving a 0.45 pF net (slew 8.7 ns, 6.3 ns of
+delay): an unbuffered long wire, also counted in the max-cap warnings. 124 of the 125 violating endpoints are
+input-to-register paths. This is a property of the filler (`fp_tile.v` feeds raw pad inputs through logic to every
+tile), not of the macros or the placement; the SPEX engine registers its inputs in the 2-flop synchroniser (R4.1)
+before any logic. Next: register the filler's inputs as the real design does, and restore the default antenna repair.
