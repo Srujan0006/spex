@@ -65,3 +65,28 @@ in `common/`. Workflows `fp_two_engine` and `fp_one_engine` (one per variant: th
 The filler (`common/fp_tile.v`) is register tables read through LFSR-addressed mux trees, like the engine's tables,
 rather than plain shift registers. The flow adds its own buffering and repair on top. `fp5` (light filler) predates
 this and is superseded.
+
+## CI results, 2026-10-20 (all four runs ended without a routed layout)
+
+GitHub-hosted runners stop a job at 6 h; the workflows use `timeout-minutes: 355`. Times below are from the job logs.
+STA is not printed per corner in the log and cancelled runs upload no artifacts, so **no per-corner slack is
+available**. The only timing data is the resizer after CTS (clock 20 ns, all three corners): "No setup violations
+found" in every run that reached it, and its hold repair.
+
+| Run (CI id) | Macros | Effective utilisation | Outcome | Global route overflow (tiles) | Detailed routing |
+|---|---|---|---|---|---|
+| `fp5` (39415125302) | 5 | 0.259 | cancelled at 355 min | 633 (11 % usage) | 11:32 to 17:23 (5 h 51 min, not finished). Violations 30 → 32 after ~60 "stubborn tiles" iterations; all 32 are **Metal4 shorts** |
+| `fp_two_engine` density 0.85 (39436634975) | 7 | 0.792 | **failed** after 7.7 min | — | not reached: DPL-0036 (25 cells could not be legalised) during CTS; global placement had to raise the density target from 0.85 to 0.96 |
+| `fp_asym` (39436634913) | 7 | 0.646 | cancelled at 355 min | 31,709 (79 % usage; Metal3 92 %) | 14:48 to 20:05 (5 h 17 min, not finished). Violations 215,357 after iteration 0 (2 h 13 min), 169,719 after iteration 1 |
+| `fp_one_engine` (39430571594) | 4 | 0.450 | cancelled at 355 min | 826 (47 % usage) | 13:40 to 19:23 (5 h 43 min, not finished). 30,802 → 2,893 by iteration 3, then stuck near 311 for 40 iterations (Metal2–4 shorts and spacing) |
+
+Post-CTS hold repair: fp5 1,100 endpoints; fp_asym 4,272 (4,022 buffers inserted); fp_one_engine 3,112 (2,966 buffers).
+
+Readings [Estimate, not yet tested]:
+- Signal routing uses only Metal2–Metal4 (Metal1 inside cells; TopMetal1 power only), so the routing resource is three
+  layers, and Metal4 also carries the full-height power stripes.
+- `fp5` at 26 % utilisation is not congested, yet 32 Metal4 shorts never clear. That points at the stripe step or macro
+  pin access rather than density, and it would also explain the floor of ~300 violations in `fp_one_engine`. The next
+  experiment should look at where these shorts are (the DRT report in a run that uploads its `runs/` directory), before
+  any more filler sizing.
+- `fp_asym` and `fp_two_engine` are over-full for three routing layers, independent of the shorts.
