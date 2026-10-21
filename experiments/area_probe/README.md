@@ -11,6 +11,7 @@ These files have not been simulated. They exist only to size the engine idea on 
 | `ta_engine_v4b.v` (`s4b.ys`) | v4 with the location word read from a 64x16 macro (port `loc_word_in`) | 12,334 | **268,888 µm²** | 2,134 |
 | `ta_engine_v4b.v` (`s4c.ys`, `CW=16`) | v4b with 16-bit clocks (no prescaler modelled) | 10,780 | **235,516 µm²** | 1,910 |
 | `ta_engine_lite.v` (`slite.ys`, `CW=16`) | Check-only engine (S46): 8 windows, 8 actions, no POLICY times, LFSR, TX FIFO, tokens or drive; location word from a 64x16 macro | 5,101 | **103,667 µm²** | — (seq. 39,975 µm², 38.6 %) |
+| `tables.v` (`s_tables.ys`) | the configuration tables of v4b / 16-bit alone (1,559 bits: 16 windows × {lo, hi, nom, clk}, 7 patterns, 8 constants, 16 actions), with v4b's read ports: 6 window, 5 pattern, 4 constant, 1 action | 6,353 | **178,241 µm²** | 1,559 (76,400 µm²; read muxes mux2 34,900 + mux4 51,600 µm²) |
 
 All values are [Measured] with `yowasp-yosys` 0.70: `synth -flatten; dfflibmap; abc; stat` against `sg13cmos5l_stdcell_typ_1p20V_25C.lib`, typical corner, pre-layout, macros excluded.
 

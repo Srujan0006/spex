@@ -1,0 +1,6 @@
+read_verilog tables.v
+synth -top tables -flatten
+dfflibmap -liberty lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+abc -liberty lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
+opt_clean
+stat -liberty lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib
