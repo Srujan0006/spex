@@ -1,0 +1,57 @@
+# Print the reports of a finished floorplan run without downloading its (large) runs/ artifact:
+# post-route STA summary per corner, routing / LVS / antenna metrics and the timing-checker warnings.
+#   gh workflow run fp_report.yaml -f run_id=<CI run id> -f artifact=fp_one_engine-runs
+name: fp_report
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "CI run id of the floorplan run"
+        required: true
+      artifact:
+        description: "runs/ artifact name (fp5-runs, fp_one_engine-runs, fp_asym-runs, fp_two_engine-runs)"
+        required: true
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: runs
+
+      - name: Print the reports
+        run: |
+          w=runs/wokwi
+          [ -d "$w" ] || w=$(dirname "$(find runs -maxdepth 3 -name resolved.json | head -1)")
+          echo "== post-route STA summary"; cat "$w"/*stapostpnr*/summary.rpt || true
+          echo "== key metrics"
+          python3 - "$w/final/metrics.json" <<'EOF' || true
+          import json, sys
+          m = json.load(open(sys.argv[1]))
+          keys = ("timing__setup__ws", "timing__hold__ws", "timing__setup_vio__count", "timing__hold_vio__count",
+                  "route__drc_errors", "design__lvs_error__count", "antenna__violating__nets", "antenna__violating__pins",
+                  "design__max_slew_violation__count", "design__max_cap_violation__count", "design__instance__utilization")
+          for k, v in sorted(m.items()):
+              if k.startswith(keys) and "iter" not in k:
+                  print(f"{k} = {v}")
+          EOF
+          echo "== worst setup paths, slow corner"
+          f=$(ls "$w"/*stapostpnr*/nom_slow*/max.rpt 2>/dev/null | head -1); [ -n "$f" ] && head -120 "$f"
+          echo "== worst hold paths, fast corner"
+          f=$(ls "$w"/*stapostpnr*/nom_fast*/min.rpt 2>/dev/null | head -1); [ -n "$f" ] && head -120 "$f"
+          true
+
+      - name: Keep the small reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ inputs.run_id }}
+          path: |
+            runs/**/*stapostpnr*/**/*.rpt
+            runs/**/final/metrics.json
+          if-no-files-found: warn

@@ -28,6 +28,10 @@ jobs:
           pdk: ihp-sg13cmos5l
           librelane-version: 3.1.0.dev3   # the action's default at the pinned commit
 
+      - name: Print the post-route STA summary
+        if: always()
+        run: cat runs/wokwi/*stapostpnr*/summary.rpt 2>/dev/null || echo "no post-route STA (flow stopped earlier)"
+
       - name: Upload the LibreLane run directory (DRC reports, STA reports, logs)
         if: always()
         uses: actions/upload-artifact@v4
