@@ -147,3 +147,13 @@ cell row fits between them) at x = 464.20 (on the 11.24 µm grid; walls 464.20�
 pair A at y 113.40 / 181.44, pair B at y 464.94 / 532.98. Channels: bottom 3.78–113.40 (u_m0 pins), middle
 245.80–464.94 (u_m1 and u_m2 pins), top 597.34–706.86 (u_m3 pins); every channel faces pins. Coverage macro unchanged.
 `OPENROAD_THREADS` = 4.
+
+## fp5 routes (CI 39571025962, 2026-10-21)
+
+With the back-to-back pairs and 4 threads the gds job took **18 min** (08:40–08:58): detailed routing reached 0
+violations in 51 s, antenna repair re-routed once to 0 [Measured, job log]. Precheck then failed on a single item,
+the pin check: "Port VGND has too small width: 1.05 < 2.1 um" (KLayout DRC, boundary, layer and all other checks
+passed). The port is a half-width VGND stripe at x = 1719.315–1720.365, cut by the right core edge. It is already in
+the GeneratePDN output of the previous layout as a stub beside the coverage macro (y 3.56–124.96), and our
+stripe-extension step stretches it to full height, which makes it a pin. Fix: the coverage macro moves to x = 3.36
+(bottom left, where PRISM places its 1P_512x32 macros); the gap to the macro walls is 44.2 um.

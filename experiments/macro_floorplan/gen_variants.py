@@ -10,6 +10,7 @@ docs/notes/GATE_A.md], so an engine is m0 TW=128 + m1 TW=128 + loc TW=16 (~278k 
 coverage tile (~66k um^2). Placement: 64x64 pairs stacked at x = 3.36 (FS/N, pins facing a logic channel), 64x16
 location-word macros stacked at x = 812.64, coverage at the bottom right; macros of different widths never share an
 x range (see README.md, stripe findings). x = 3.36 + 11.24 i and y = 3.78 k keep every macro on PRISM's stripe grid.
+Flow settings (OPENROAD_THREADS = 4, DRT_ANTENNA_REPAIR_ITERS = 1, ...) are copied from fp5/src/config.json.
 """
 import json
 import os

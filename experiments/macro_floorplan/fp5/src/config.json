@@ -9,6 +9,7 @@
   "PL_TARGET_DENSITY_PCT": 60,
   "CLOCK_PERIOD": 20,
   "OPENROAD_THREADS": 4,
+  "DRT_ANTENNA_REPAIR_ITERS": 1,
   "PL_RESIZER_HOLD_SLACK_MARGIN": 0.1,
   "GRT_RESIZER_HOLD_SLACK_MARGIN": 0.05,
   "RUN_LINTER": 1,
@@ -77,7 +78,7 @@
       "instances": {
         "u_cov.g_m32.u_sram": {
           "location": [
-            1295.96,
+            3.36,
             3.78
           ],
           "orientation": "FS"
@@ -138,9 +139,9 @@
     "Metal2 464.20 532.98 1248.68 594.74",
     "Metal3 464.20 532.98 1248.68 594.74",
     "Metal4 464.20 532.98 1248.68 594.74",
-    "Metal2 1295.96 3.78 1712.60 119.96",
-    "Metal3 1295.96 3.78 1712.60 119.96",
-    "Metal4 1295.96 3.78 1712.60 119.96"
+    "Metal2 3.36 3.78 420.00 119.96",
+    "Metal3 3.36 3.78 420.00 119.96",
+    "Metal4 3.36 3.78 420.00 119.96"
   ],
   "MAGIC_MACRO_STD_CELL_SOURCE": "PDK",
   "MAGIC_EXT_ABSTRACT_CELLS": [
