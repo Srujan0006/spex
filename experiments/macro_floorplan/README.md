@@ -120,3 +120,24 @@ Post-route STA of this run (20 ns clock, light filler, with the shorts still pre
 | slow 1.08 V 125 °C | +1.291 ns (≈ +2.09 ns at 20.8 ns) | +0.009 ns (0) |
 | typical 1.20 V 25 °C | +6.700 ns | −0.225 ns (7) |
 | fast 1.32 V −40 °C | +10.093 ns | −0.356 ns (39) |
+
+## fp5 with routing obstructions (CI 39535356190, 2026-10-21): better, still not routed
+
+The obstructions worked as intended for the bulk of the routing: violations fell from 3,011 to 183 in the first 4 min
+of detailed routing (the run without them: 30 → 32 stuck for hours). The first routing run then crawled to **54 after
+64 passes** (02:55–05:20, single-threaded); antenna repair re-routed twice (92, then ~150) until the 320-min step
+timeout. Global routing reported 633 overflowing tiles at 11 % total usage, i.e. the overflow is exactly where the
+obstructions are: with `GRT_ALLOW_CONGESTION` the global router plans nets **through** the blocked macro area and the
+detailed router follows those guides.
+
+All 54 remaining violations are over u_m1, u_m2 or u_m3 (none over u_m0 or the coverage macro), Metal4 42 and Metal3
+12: wires crossing a macro and shorting to the obstruction, a stripe or the macro's own shapes [Measured, DRC report
+`drt-run-0`]. Example: `net312` (a fanout buffer of the shared filler input) has sinks at y ≈ 95 (channel above u_m0),
+272 (the pin-less channel between u_m1 and u_m2) and 465–488 (channel above u_m2) [Measured, placed DEF]. The four
+1P_64x64 macros are 784 µm walls starting at the left die edge, so the only legal path between channels is around
+their right end, a detour of 600 µm or more for these nets.
+
+Cause [Estimate]: the floorplan, not the macros. It has four full-width walls, a channel between u_m1 and u_m2 with no
+pins in it, and walls closed on the left. Candidates for the next run: back-to-back pairs (N under FS) so there are
+two walls instead of four and every channel faces pins; walls moved off the die edge so nets can pass at both ends;
+`OPENROAD_THREADS` set to 4 (runs are single-threaded now: `openroad -threads None`, CPU time = wall time).
