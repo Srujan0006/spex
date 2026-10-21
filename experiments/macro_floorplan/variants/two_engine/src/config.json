@@ -190,7 +190,9 @@
     "u_e1_m1\\.g_m64\\.u_sram VPWR VGND VDD! VSS!",
     "u_e1_m1\\.g_m64\\.u_sram VPWR VGND VDDARRAY! VSS!",
     "u_e0_loc\\.g_m16\\.u_sram VPWR VGND VDD! VSS!",
+    "u_e0_loc\\.g_m16\\.u_sram VPWR VGND VDDARRAY! VSS!",
     "u_e1_loc\\.g_m16\\.u_sram VPWR VGND VDD! VSS!",
+    "u_e1_loc\\.g_m16\\.u_sram VPWR VGND VDDARRAY! VSS!",
     "u_cov\\.g_m32\\.u_sram VPWR VGND VDD! VSS!",
     "u_cov\\.g_m32\\.u_sram VPWR VGND VDDARRAY! VSS!"
   ],

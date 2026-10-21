@@ -114,7 +114,9 @@ def project_v(name, tiles):
 def _conn(tile):
     inst, kind = tile[0], tile[1]
     esc = f"{inst}.{SUB[kind]}.u_sram".replace(".", "\\.")
-    return [f"{esc} VPWR VGND VDD! VSS!"] + ([f"{esc} VPWR VGND VDDARRAY! VSS!"] if kind != 2 else [])
+    # every SRAM type here, the 64x16 included, has VDD!, VSS! and VDDARRAY! (PDK LEF); fp_one_engine CI 39582746480
+    # failed the disconnected-pins check when VDDARRAY! of the 64x16 was left out
+    return [f"{esc} VPWR VGND VDD! VSS!", f"{esc} VPWR VGND VDDARRAY! VSS!"]
 
 
 def config(tiles):
@@ -132,7 +134,7 @@ def config(tiles):
         path = f"{inst}.{SUB[kind]}.u_sram"
         m["instances"][path] = {"location": [round(x, 2), round(y, 2)], "orientation": orient}
         esc = path.replace(".", "\\.")
-        conn += [f"{esc} VPWR VGND VDD! VSS!"] + ([f"{esc} VPWR VGND VDDARRAY! VSS!"] if kind != 2 else [])
+        conn += [f"{esc} VPWR VGND VDD! VSS!", f"{esc} VPWR VGND VDDARRAY! VSS!"]
     template = json.load(open(os.path.join(HERE, "fp5", "src", "config.json")))
     cfg = {"//": f"{GEN}. Recipe credits as in fp5/src/config.json (Loom, PRISM)."}
     for k, v in template.items():

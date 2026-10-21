@@ -173,3 +173,11 @@ artifact]. Post-route STA (20 ns):
 
 This meets Gate A condition 2 with a light filler (utilisation 0.259). Next: the same placement rules for the
 engine-sized variants (`gen_variants.py` still places four walls at the die edge and the coverage macro on the right).
+
+## fp_one_engine with the fp5 placement (CI 39582746480, 2026-10-21)
+
+Effective utilisation 0.450. Detailed routing 10:22:48–11:47:04 on 4 threads: 31,510 violations after the first pass,
+**0 at the end** (1 h 25 min including one antenna re-route; before the layout change it was stuck near 300 at the 6 h
+limit). The flow then stopped at `Checker.DisconnectedPins`: VDDARRAY! of the 64x16 location-word macro was not in
+`PDN_MACRO_CONNECTIONS` (BUGS 25, fixed in the generator). Mid-PnR STA before detailed routing showed a few setup
+violations (slow 3, typical 1) and hold violations on all corners; post-route numbers come with the rerun.
