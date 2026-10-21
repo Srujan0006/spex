@@ -12,7 +12,8 @@ back-to-back pairs (N below FS, 68.04 um apart, so no cell row fits between) at 
 both ends and every logic channel faces pins; location-word macros as a pair in the open area right of the walls
 (x = 1262.24); coverage at the bottom left (x = 3.36, as PRISM). Macros of different widths never share an x range
 (README.md, stripe findings); x = 3.36 + 11.24 i and y = 3.78 k keep every macro on PRISM's stripe grid.
-Flow settings (OPENROAD_THREADS = 4, DRT_ANTENNA_REPAIR_ITERS = 1, ...) are copied from fp5/src/config.json.
+Flow settings (OPENROAD_THREADS = 4, ...) are copied from fp5/src/config.json, except fp5's antenna-repair cap: the
+variants use LibreLane's default (3 re-routes), as the real design will (fp_one_engine kept 4 antenna nets with 1).
 """
 import json
 import os
@@ -100,9 +101,16 @@ def project_v(name, tiles):
              "`default_nettype none", f"module {top} (",
              "    input  wire [7:0] ui_in, output wire [7:0] uo_out, input  wire [7:0] uio_in,",
              "    output wire [7:0] uio_out, output wire [7:0] uio_oe, input  wire ena, input  wire clk,",
-             "    input  wire rst_n", ");", f"    wire [{len(tiles) - 1}:0] d;"]
+             "    input  wire rst_n", ");", f"    wire [{len(tiles) - 1}:0] d;",
+             "    // 2-flop input synchronisers, not reset, as the engine's pin synchroniser (SEMANTICS R4.1): no pad",
+             "    // input reaches logic before a register (fp_one_engine CI 39612722226 failed slow-corner setup on",
+             "    // pad-to-table paths without them)",
+             "    reg [7:0] ui_s1, ui_s, uio_s1, uio_s;",
+             "    always @(posedge clk) begin",
+             "        ui_s1 <= ui_in; ui_s <= ui_s1; uio_s1 <= uio_in; uio_s <= uio_s1;",
+             "    end"]
     for i, (inst, kind, tw, *_ ) in enumerate(tiles):
-        din = ["ui_in", "uio_in", "~ui_in", "ui_in ^ uio_in", "ui_in + uio_in", "uio_in - ui_in", "{ui_in[3:0], uio_in[7:4]}"][i % 7]
+        din = ["ui_s", "uio_s", "~ui_s", "ui_s ^ uio_s", "ui_s + uio_s", "uio_s - ui_s", "{ui_s[3:0], uio_s[7:4]}"][i % 7]
         lines.append(f"    fp_tile #(.KIND({kind}), .TW({tw}), .SEED(32'h{(i * 0x1F3 + 1):08x})) {inst} "
                      f"(.clk(clk), .rst_n(rst_n), .din({din}), .dout(d[{i}]));")
     lines += [f"    assign uo_out = {{{8 - len(tiles)}'b0, d}};" if len(tiles) < 8 else "    assign uo_out = d[7:0];",
@@ -139,7 +147,7 @@ def config(tiles):
     cfg = {"//": f"{GEN}. Recipe credits as in fp5/src/config.json (Loom, PRISM)."}
     for k, v in template.items():
         if k in ("//", "//diag", "MACROS", "PDN_MACRO_CONNECTIONS", "VERILOG_DEFINES", "ROUTING_OBSTRUCTIONS",
-                 "DRT_OPT_ITERS", "ERROR_ON_TR_DRC"):
+                 "DRT_OPT_ITERS", "ERROR_ON_TR_DRC", "DRT_ANTENNA_REPAIR_ITERS"):
             continue
         cfg[k] = v
     cfg["MACROS"] = macros

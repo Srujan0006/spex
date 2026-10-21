@@ -7,13 +7,20 @@ module tt_um_srujan0006_fp_two_engine (
     input  wire rst_n
 );
     wire [6:0] d;
-    fp_tile #(.KIND(0), .TW(128), .SEED(32'h00000001)) u_e0_m0 (.clk(clk), .rst_n(rst_n), .din(ui_in), .dout(d[0]));
-    fp_tile #(.KIND(0), .TW(128), .SEED(32'h000001f4)) u_e0_m1 (.clk(clk), .rst_n(rst_n), .din(uio_in), .dout(d[1]));
-    fp_tile #(.KIND(0), .TW(128), .SEED(32'h000003e7)) u_e1_m0 (.clk(clk), .rst_n(rst_n), .din(~ui_in), .dout(d[2]));
-    fp_tile #(.KIND(0), .TW(128), .SEED(32'h000005da)) u_e1_m1 (.clk(clk), .rst_n(rst_n), .din(ui_in ^ uio_in), .dout(d[3]));
-    fp_tile #(.KIND(2), .TW(16), .SEED(32'h000007cd)) u_e0_loc (.clk(clk), .rst_n(rst_n), .din(ui_in + uio_in), .dout(d[4]));
-    fp_tile #(.KIND(2), .TW(16), .SEED(32'h000009c0)) u_e1_loc (.clk(clk), .rst_n(rst_n), .din(uio_in - ui_in), .dout(d[5]));
-    fp_tile #(.KIND(1), .TW(64), .SEED(32'h00000bb3)) u_cov (.clk(clk), .rst_n(rst_n), .din({ui_in[3:0], uio_in[7:4]}), .dout(d[6]));
+    // 2-flop input synchronisers, not reset, as the engine's pin synchroniser (SEMANTICS R4.1): no pad
+    // input reaches logic before a register (fp_one_engine CI 39612722226 failed slow-corner setup on
+    // pad-to-table paths without them)
+    reg [7:0] ui_s1, ui_s, uio_s1, uio_s;
+    always @(posedge clk) begin
+        ui_s1 <= ui_in; ui_s <= ui_s1; uio_s1 <= uio_in; uio_s <= uio_s1;
+    end
+    fp_tile #(.KIND(0), .TW(128), .SEED(32'h00000001)) u_e0_m0 (.clk(clk), .rst_n(rst_n), .din(ui_s), .dout(d[0]));
+    fp_tile #(.KIND(0), .TW(128), .SEED(32'h000001f4)) u_e0_m1 (.clk(clk), .rst_n(rst_n), .din(uio_s), .dout(d[1]));
+    fp_tile #(.KIND(0), .TW(128), .SEED(32'h000003e7)) u_e1_m0 (.clk(clk), .rst_n(rst_n), .din(~ui_s), .dout(d[2]));
+    fp_tile #(.KIND(0), .TW(128), .SEED(32'h000005da)) u_e1_m1 (.clk(clk), .rst_n(rst_n), .din(ui_s ^ uio_s), .dout(d[3]));
+    fp_tile #(.KIND(2), .TW(16), .SEED(32'h000007cd)) u_e0_loc (.clk(clk), .rst_n(rst_n), .din(ui_s + uio_s), .dout(d[4]));
+    fp_tile #(.KIND(2), .TW(16), .SEED(32'h000009c0)) u_e1_loc (.clk(clk), .rst_n(rst_n), .din(uio_s - ui_s), .dout(d[5]));
+    fp_tile #(.KIND(1), .TW(64), .SEED(32'h00000bb3)) u_cov (.clk(clk), .rst_n(rst_n), .din({ui_s[3:0], uio_s[7:4]}), .dout(d[6]));
     assign uo_out = {1'b0, d};
     assign uio_out = 8'h00;
     assign uio_oe = 8'h00;
