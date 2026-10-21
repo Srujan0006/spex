@@ -8,9 +8,6 @@
   },
   "PL_TARGET_DENSITY_PCT": 60,
   "CLOCK_PERIOD": 20,
-  "//diag": "Diagnostic run (2026-10-21): cap detailed-routing iterations and let the flow continue past routing DRC, so the DRC report and post-route STA exist.",
-  "DRT_OPT_ITERS": 12,
-  "ERROR_ON_TR_DRC": false,
   "PL_RESIZER_HOLD_SLACK_MARGIN": 0.1,
   "GRT_RESIZER_HOLD_SLACK_MARGIN": 0.05,
   "RUN_LINTER": 1,
@@ -127,6 +124,23 @@
   "EXTEND_STRIPES_SRAM_ARRAY_EVERY_OTHER": true,
   "FP_MACRO_HORIZONTAL_HALO": 2.0,
   "FP_MACRO_VERTICAL_HALO": 0.48,
+  "ROUTING_OBSTRUCTIONS": [
+    "Metal2 3.36 3.78 787.84 65.54",
+    "Metal3 3.36 3.78 787.84 65.54",
+    "Metal4 3.36 3.78 787.84 65.54",
+    "Metal2 3.36 191.60 787.84 253.36",
+    "Metal3 3.36 191.60 787.84 253.36",
+    "Metal4 3.36 191.60 787.84 253.36",
+    "Metal2 3.36 389.34 787.84 451.10",
+    "Metal3 3.36 389.34 787.84 451.10",
+    "Metal4 3.36 389.34 787.84 451.10",
+    "Metal2 3.36 577.16 787.84 638.92",
+    "Metal3 3.36 577.16 787.84 638.92",
+    "Metal4 3.36 577.16 787.84 638.92",
+    "Metal2 1295.96 3.78 1712.60 119.96",
+    "Metal3 1295.96 3.78 1712.60 119.96",
+    "Metal4 1295.96 3.78 1712.60 119.96"
+  ],
   "MAGIC_MACRO_STD_CELL_SOURCE": "PDK",
   "MAGIC_EXT_ABSTRACT_CELLS": [
     "RM_IHPSG13_.*"

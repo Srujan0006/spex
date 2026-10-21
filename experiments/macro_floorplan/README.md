@@ -90,3 +90,33 @@ Readings [Estimate, not yet tested]:
   experiment should look at where these shorts are (the DRT report in a run that uploads its `runs/` directory), before
   any more filler sizing.
 - `fp_asym` and `fp_two_engine` are over-full for three routing layers, independent of the shorts.
+
+## fp5 diagnostic run: where the Metal4 shorts are (2026-10-21)
+
+CI 39531747585 (`fc4500d`): detailed routing capped at 12 iterations (`DRT_OPT_ITERS`), `ERROR_ON_TR_DRC` off, `runs/`
+uploaded. Routing took 15 min (02:16:50 to 02:31:52) and left **245 violations, all on Metal4** (169 shorts, 76
+spacing); Metal2 and Metal3 were clean. The flow then ran to LVS, where LibreLane crashed parsing netgen's output
+(`JSONDecodeError: Invalid \escape`; probably the escaped `\[` net names, not investigated).
+
+From `45-openroad-detailedrouting/tt_um_srujan0006_fp5.drc` [Measured, classification script over the bounding boxes]:
+- **every violation lies over (225) or within 5 µm of (20) a 1P_64x64 macro**: u_m2 130, u_m3 80, u_m1 35; none over
+  u_m0, the coverage macro or the open core;
+- partners: signal vs VPWR/VGND stripe 158, signal vs the macro's own Metal4 shapes 87;
+- 109 are signal wires running the full macro height on Metal4 (e.g. `u_m1.qr[0]` at x = 404.06, y 189.00–253.36).
+
+Cause [Measured from the PDK LEF]: the 1P_64x64 LEF obstructs Metal1 and Metal3 over the whole macro but Metal4 only on
+48 % of it (201 rectangles, the power columns); the gaps between columns look free to the router, which uses them as
+vertical tracks across the macro and then cannot fit them between the macro's columns and our extended stripes.
+PRISM met the same problem and fixed it with routing obstructions over the SRAM interiors on Metal2–Metal4, leaving
+2.6 µm free at the pin face (`kdp1965/ihp-um-janestreet-prism` `docs/prism_interface.md`, sections 4b and 4d.1).
+Signal pins of all three SRAM types are Metal2 on the y = 0 face (N; FS puts them on top) [Measured, LEF].
+
+Fix applied: `gen_variants.obstructions()` writes `ROUTING_OBSTRUCTIONS` for every macro (fp5 and all variants).
+
+Post-route STA of this run (20 ns clock, light filler, with the shorts still present, so indicative only):
+
+| Corner | Setup worst slack | Hold worst slack (violating paths) |
+|---|---|---|
+| slow 1.08 V 125 °C | +1.291 ns (≈ +2.09 ns at 20.8 ns) | +0.009 ns (0) |
+| typical 1.20 V 25 °C | +6.700 ns | −0.225 ns (7) |
+| fast 1.32 V −40 °C | +10.093 ns | −0.356 ns (39) |
