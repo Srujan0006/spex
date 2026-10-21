@@ -7,9 +7,11 @@ the measured v4b area-probe estimate, 268,888 um^2 (experiments/area_probe, s4b.
 corner), plus 0.05 mm^2 of host/trace/glue [Estimate, proposal section 4]; the table filler of common/fp_tile.v costs
 about 955 um^2 per 8-bit word plus a 3.5-7.4k um^2 base per tile [Measured: yosys 0.33, local, see
 docs/notes/GATE_A.md], so an engine is m0 TW=128 + m1 TW=128 + loc TW=16 (~278k um^2) and the glue is TW=64 on the
-coverage tile (~66k um^2). Placement: 64x64 pairs stacked at x = 3.36 (FS/N, pins facing a logic channel), 64x16
-location-word macros stacked at x = 812.64, coverage at the bottom right; macros of different widths never share an
-x range (see README.md, stripe findings). x = 3.36 + 11.24 i and y = 3.78 k keep every macro on PRISM's stripe grid.
+coverage tile (~66k um^2). Placement (the rules that made fp5 route, 2026-10-21; README.md): 64x64 macros as
+back-to-back pairs (N below FS, 68.04 um apart, so no cell row fits between) at x = 464.20, so the walls are open at
+both ends and every logic channel faces pins; location-word macros as a pair in the open area right of the walls
+(x = 1262.24); coverage at the bottom left (x = 3.36, as PRISM). Macros of different widths never share an x range
+(README.md, stripe findings); x = 3.36 + 11.24 i and y = 3.78 k keep every macro on PRISM's stripe grid.
 Flow settings (OPENROAD_THREADS = 4, DRT_ANTENNA_REPAIR_ITERS = 1, ...) are copied from fp5/src/config.json.
 """
 import json
@@ -44,27 +46,52 @@ def obstructions(tiles):
     return out
 
 # name: [(instance, kind, TW, x, y, orientation)]
+XW = 464.20     # 3.36 + 11.24 * 41: 64x64 walls centred
+XL = 1262.24    # 3.36 + 11.24 * 112: location-word macros, right of the walls
+PAIR = 68.04    # N below FS, 18 rows apart
+COV = ("u_cov", 1, 64, 3.36, 3.78, "FS")
+
+# name: [(instance, kind, TW, x, y, orientation)]
 VARIANTS = {
+    # fp5's geometry: pair A at y 113.40, pair B at y 464.94
     "two_engine": [
-        ("u_e0_m0", 0, 128, 3.36, 3.78, "FS"), ("u_e0_m1", 0, 128, 3.36, 189.0, "N"),
-        ("u_e1_m0", 0, 128, 3.36, 389.34, "FS"), ("u_e1_m1", 0, 128, 3.36, 574.56, "N"),
-        ("u_e0_loc", 2, 16, 812.64, 3.78, "FS"), ("u_e1_loc", 2, 16, 812.64, 189.0, "N"),
-        ("u_cov", 1, 64, 1295.96, 3.78, "FS"),
+        ("u_e0_m0", 0, 128, XW, 113.40, "N"), ("u_e0_m1", 0, 128, XW, 113.40 + PAIR, "FS"),
+        ("u_e1_m0", 0, 128, XW, 464.94, "N"), ("u_e1_m1", 0, 128, XW, 464.94 + PAIR, "FS"),
+        ("u_e0_loc", 2, 16, XL, 287.28, "N"), ("u_e1_loc", 2, 16, XL, 287.28 + PAIR, "FS"),
+        COV,
     ],
     # S46: one full engine plus one Check-only engine (ta_engine_lite.v, 103,667 um^2 [Measured, slite.ys]):
     # the Check-only engine's tiles are sized to ~114k um^2 (TW 64 + 32 + 4)
     "asym": [
-        ("u_e0_m0", 0, 128, 3.36, 3.78, "FS"), ("u_e0_m1", 0, 128, 3.36, 189.0, "N"),
-        ("u_e1_m0", 0, 64, 3.36, 389.34, "FS"), ("u_e1_m1", 0, 32, 3.36, 574.56, "N"),
-        ("u_e0_loc", 2, 16, 812.64, 3.78, "FS"), ("u_e1_loc", 2, 4, 812.64, 189.0, "N"),
-        ("u_cov", 1, 64, 1295.96, 3.78, "FS"),
+        ("u_e0_m0", 0, 128, XW, 113.40, "N"), ("u_e0_m1", 0, 128, XW, 113.40 + PAIR, "FS"),
+        ("u_e1_m0", 0, 64, XW, 464.94, "N"), ("u_e1_m1", 0, 32, XW, 464.94 + PAIR, "FS"),
+        ("u_e0_loc", 2, 16, XL, 287.28, "N"), ("u_e1_loc", 2, 4, XL, 287.28 + PAIR, "FS"),
+        COV,
     ],
+    # one pair centred vertically: channels below and above it face its pins
     "one_engine": [
-        ("u_e0_m0", 0, 128, 3.36, 3.78, "FS"), ("u_e0_m1", 0, 128, 3.36, 189.0, "N"),
-        ("u_e0_loc", 2, 16, 812.64, 3.78, "FS"),
-        ("u_cov", 1, 64, 1295.96, 3.78, "FS"),
+        ("u_e0_m0", 0, 128, XW, 287.28, "N"), ("u_e0_m1", 0, 128, XW, 287.28 + PAIR, "FS"),
+        ("u_e0_loc", 2, 16, XL, 287.28, "N"),
+        COV,
     ],
 }
+
+
+def check_geometry(name, tiles):
+    """Every macro inside the core, no overlaps (with the 2 um horizontal halo), and no two macros of different
+    widths sharing an x range (stripe rule)."""
+    boxes = [(inst, k, x, y, x + SIZE[k][0], y + SIZE[k][1]) for inst, k, _tw, x, y, _o in tiles]
+    for a in boxes:
+        if not (2.88 <= a[2] and a[4] <= 1721.28 and 3.78 <= a[3] and a[5] <= 706.86):
+            raise SystemExit(f"{name}: {a[0]} outside the core")
+        for b in boxes:
+            if a[0] >= b[0]:
+                continue
+            xo = a[2] < b[4] + 2.0 and b[2] < a[4] + 2.0
+            if xo and a[3] < b[5] and b[3] < a[5]:
+                raise SystemExit(f"{name}: {a[0]} overlaps {b[0]}")
+            if xo and a[1] != b[1]:
+                raise SystemExit(f"{name}: {a[0]} and {b[0]} have different widths in one x range")
 
 
 def project_v(name, tiles):
@@ -103,7 +130,7 @@ def config(tiles):
                     "nom_slow_1p08V_125C": [f"{P}/lib/{name}_slow_1p08V_125C.lib"]},
             "nl": [f"dir::{name}.v"], "spice": [f"{P}/cdl/{name}.cdl"]})
         path = f"{inst}.{SUB[kind]}.u_sram"
-        m["instances"][path] = {"location": [x, y], "orientation": orient}
+        m["instances"][path] = {"location": [round(x, 2), round(y, 2)], "orientation": orient}
         esc = path.replace(".", "\\.")
         conn += [f"{esc} VPWR VGND VDD! VSS!"] + ([f"{esc} VPWR VGND VDDARRAY! VSS!"] if kind != 2 else [])
     template = json.load(open(os.path.join(HERE, "fp5", "src", "config.json")))
@@ -147,6 +174,7 @@ def main():
         cfg["PDN_MACRO_CONNECTIONS"] = [c for t in tiles for c in _conn(t)]
         cfg["PL_TARGET_DENSITY_PCT"] = DENSITY[name]
         cfg["ROUTING_OBSTRUCTIONS"] = obstructions(tiles)
+        check_geometry(name, tiles)
         json.dump(cfg, open(os.path.join(src, "config.json"), "w"), indent=2)
         info = open(os.path.join(HERE, "fp5", "info.yaml")).read()
         info = info.replace('title:        "SPEX floorplan experiment fp5"', f'title:        "SPEX floorplan experiment {name}"')

@@ -22,10 +22,20 @@ jobs:
           cp experiments/macro_floorplan/common/librelane_plugin_spex_pdn.py experiments/macro_floorplan/common/odb_stripes.py .
 
       - name: Build GDS
+        timeout-minutes: 320          # fail the step, not the job, so the upload below still runs
         uses: TinyTapeout/tt-gds-action@3412659307918422f3f0727917cf9b499aaca588  # ihp-cmos5l, pinned 2026-10-21
         with:
           pdk: ihp-sg13cmos5l
           librelane-version: 3.1.0.dev3   # the action's default at the pinned commit
+
+      - name: Upload the LibreLane run directory (DRC reports, STA reports, logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp_one_engine-runs
+          path: runs/
+          retention-days: 14
+          if-no-files-found: warn
 
   precheck:
     needs: gds
