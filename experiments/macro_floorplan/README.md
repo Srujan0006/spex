@@ -157,3 +157,19 @@ passed). The port is a half-width VGND stripe at x = 1719.315–1720.365, cut by
 the GeneratePDN output of the previous layout as a stub beside the coverage macro (y 3.56–124.96), and our
 stripe-extension step stretches it to full height, which makes it a pin. Fix: the coverage macro moves to x = 3.36
 (bottom left, where PRISM places its 1P_512x32 macros); the gap to the macro walls is 44.2 um.
+
+## fp5 passes precheck (CI 39575347791, 2026-10-21)
+
+Coverage macro at x = 3.36: gds job 27 min (09:14–09:41), precheck passed (09:41–09:53). Detailed routing 09:17:42 to
+09:23:35 on 4 threads: DRC count per pass 151, 23, 12, 4, 0, then one antenna re-route to 0. Routing DRC 0, LVS 0
+device differences, no antenna violations [Measured, `runs/wokwi/final/metrics.json` of the run's `fp5-runs`
+artifact]. Post-route STA (20 ns):
+
+| Corner | Setup worst slack | Hold worst slack | Max slew / max cap warnings |
+|---|---|---|---|
+| slow 1.08 V 125 °C | +8.964 ns (≈ +9.76 ns at 20.8 ns) | +0.510 ns | 141 / 1 |
+| typical 1.20 V 25 °C | +11.390 ns | +0.220 ns | 96 / 1 |
+| fast 1.32 V −40 °C | +12.993 ns | +0.051 ns | 78 / 1 |
+
+This meets Gate A condition 2 with a light filler (utilisation 0.259). Next: the same placement rules for the
+engine-sized variants (`gen_variants.py` still places four walls at the die edge and the coverage macro on the right).
