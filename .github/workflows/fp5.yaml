@@ -27,8 +27,18 @@ jobs:
 
       - name: Build GDS
         uses: TinyTapeout/tt-gds-action@ihp-cmos5l
+        timeout-minutes: 320          # fail the step, not the job, so the upload below still runs
         with:
           pdk: ihp-sg13cmos5l
+
+      - name: Upload the LibreLane run directory (DRC reports, STA reports, logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp5-runs
+          path: runs/
+          retention-days: 14
+          if-no-files-found: warn
 
   precheck:
     needs: gds
