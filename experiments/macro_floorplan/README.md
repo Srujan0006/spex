@@ -141,3 +141,9 @@ Cause [Estimate]: the floorplan, not the macros. It has four full-width walls, a
 pins in it, and walls closed on the left. Candidates for the next run: back-to-back pairs (N under FS) so there are
 two walls instead of four and every channel faces pins; walls moved off the die edge so nets can pass at both ends;
 `OPENROAD_THREADS` set to 4 (runs are single-threaded now: `openroad -threads None`, CPU time = wall time).
+
+**Next fp5 run (2026-10-21):** the four 1P_64x64 macros as two back-to-back pairs (N below FS, 68.04 µm apart, so no
+cell row fits between them) at x = 464.20 (on the 11.24 µm grid; walls 464.20–1248.68, open at both ends):
+pair A at y 113.40 / 181.44, pair B at y 464.94 / 532.98. Channels: bottom 3.78–113.40 (u_m0 pins), middle
+245.80–464.94 (u_m1 and u_m2 pins), top 597.34–706.86 (u_m3 pins); every channel faces pins. Coverage macro unchanged.
+`OPENROAD_THREADS` = 4.
