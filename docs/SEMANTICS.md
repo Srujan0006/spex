@@ -21,7 +21,7 @@ Section 13 has the worked cycle-by-cycle examples. Section 14 lists every change
 - **R0.2 DECIDED (S17).** The model call `step(pads_in, host_op)` is one rising edge: it reads `S_n`, the pad inputs during cycle n (`pad[n]`) and the host operation of cycle n, and computes `S_{n+1}`. Two-phase update: every new value is a function of `S_n` and the inputs of cycle n only.
 - **R0.3 DECIDED (S17).** `outputs()` in cycle n is a pure function of `S_n`. An action of an edge that fires in cycle n is therefore visible on the pads from cycle n+1.
 - **R0.4 DECIDED (S17).** A *pad change in cycle n* means `pad[n] ≠ pad[n−1]` for that pin.
-- **R0.5.** SPEX has 8 chip pins, numbered 0..7. Each has an input `pad_in[p]`, an output value `out[p]` and an output enable `oe[p]`. The mapping to Tiny Tapeout pins is an RTL detail (DEFERRED 2026-11-14). The *line* is the electrical value on the pin; tests model it with a bus model (push-pull or wired-AND with pull-up).
+- **R0.5.** SPEX has 8 chip pins, numbered 0..7. Each has an input `pad_in[p]`, an output value `out[p]` and an output enable `oe[p]`. The mapping to Tiny Tapeout pins is an RTL detail (DEFERRED 2026-11-14; proposed: pin p on `uio[p]`, S49). The *line* is the electrical value on the pin; tests model it with a bus model (push-pull or wired-AND with pull-up).
 - **R0.6.** Notation: `P_n` = pin bus in cycle n (§4). `x_c` = clock c. `chg_n = P_n XOR P_{n−1}`. A *mask* is an 8-bit set of pins. `min ∅ = 0`.
 
 ## 1. Time and clocks

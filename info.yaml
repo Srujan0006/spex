@@ -7,7 +7,7 @@ project:
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
   clock_hz:     48000000       # Clock frequency in Hz (or 0 if not applicable)
 
-  # How many tiles your design occupies? A single tile is about 167x108 uM.
+  # How many tiles your design occupies? On ihp-sg13cmos5l a 1x1 tile is 202 x 155 um; 8x4 is 1724.16 x 710.64 um.
   tiles: "8x4"          # SPEX: 8x4 (1724.16 x 710.64 um), supported by the official cmos5l tools; see docs/notes/TT_TEMPLATE.md
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
@@ -23,9 +23,9 @@ project:
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
 pinout:
   # Inputs
-  ui[0]: ""
-  ui[1]: ""
-  ui[2]: ""
+  ui[0]: "HOST_CS_N (host SPI, active low)"
+  ui[1]: "HOST_SCK (host SPI clock)"
+  ui[2]: "HOST_MOSI (host SPI data in)"
   ui[3]: ""
   ui[4]: ""
   ui[5]: ""
@@ -33,8 +33,8 @@ pinout:
   ui[7]: ""
 
   # Outputs
-  uo[0]: ""
-  uo[1]: ""
+  uo[0]: "HOST_MISO (host SPI data out)"
+  uo[1]: "IRQ (host attention: violation, FIFO or halt)"
   uo[2]: ""
   uo[3]: ""
   uo[4]: ""
@@ -43,14 +43,14 @@ pinout:
   uo[7]: ""
 
   # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
-  uio[4]: ""
-  uio[5]: ""
-  uio[6]: ""
-  uio[7]: ""
+  uio[0]: "SPEX pin 0 (protocol pin, bidirectional)"
+  uio[1]: "SPEX pin 1 (protocol pin, bidirectional)"
+  uio[2]: "SPEX pin 2 (protocol pin, bidirectional)"
+  uio[3]: "SPEX pin 3 (protocol pin, bidirectional)"
+  uio[4]: "SPEX pin 4 (protocol pin, bidirectional)"
+  uio[5]: "SPEX pin 5 (protocol pin, bidirectional)"
+  uio[6]: "SPEX pin 6 (protocol pin, bidirectional)"
+  uio[7]: "SPEX pin 7 (protocol pin, bidirectional)"
 
 # Do not change!
 yaml_version: 6

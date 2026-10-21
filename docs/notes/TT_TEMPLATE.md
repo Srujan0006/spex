@@ -3,7 +3,8 @@
 - Source: https://github.com/TinyTapeout/ttihp-verilog-template, branch `cmos5l`.
 - Commit: `231f26a58b8d2efbab25bef24b29c94362a431a3` (2026-10-19 12:52 +0200, "fix(test): add sg13cmos5l UDP models to gate-level simulation"). Imported 2026-10-19.
 - Files imported unmodified: `info.yaml`, `src/project.v`, `src/config.json`, `test/{Makefile,README.md,requirements.txt,tb.gtkw,tb.v,test.py}`, `docs/info.md`, `.github/workflows/{docs,gds,test,fpga}.yaml`, `LICENSE` (Apache-2.0, same as ours; the repo had none).
-- Not imported: the template's `README.md`, `.gitignore`, `.devcontainer/`, `.vscode/` (ours exist or are not needed). `.github/workflows/model.yaml` is ours and was kept.
+- Not imported on 2026-10-19: the template's `README.md`, `.gitignore`, `.devcontainer/`, `.vscode/`. `.github/workflows/model.yaml` is ours and was kept.
+- **Completed 2026-10-21** (same commit `231f26a`, still the branch head; checked with `git clone -b cmos5l`): `.devcontainer/` and `.vscode/` copied unmodified; the template's `.gitignore` lines appended to ours under a comment. `README.md` stays ours (SPEX description). Every other template file is byte-identical to the template except the edits below [Measured: `cmp` of each template file against the repo].
 
 ## 8x4 availability [Measured, corrected 2026-10-20]
 
@@ -22,5 +23,7 @@
 | `info.yaml` | title, author, description, clock_hz (48 MHz) filled in | the gds and docs workflows reject empty fields (CI run 39410242621) |
 | `docs/info.md` | placeholder sections replaced with a short description | the docs workflow rejects the template text |
 | `.github/workflows/gds.yaml` | `push` limited to `src/**`, `info.yaml` and the workflow itself | the 8x4 harden of the placeholder design costs hours of CI on every docs or model commit |
+| `info.yaml` | tile-size comment updated to cmos5l sizes (1x1 = 202 × 155 µm, 8x4 = 1724.16 × 710.64 µm) | the template comment gives the old sg13g2 tile size (2026-10-21) |
+| `info.yaml` | `pinout` filled in: host SPI on `ui[0..2]` / `uo[0]`, IRQ on `uo[1]`, SPEX pins 0..7 on `uio[0..7]` (S49, proposed) | the docs workflow rejects an empty pinout; datasheet only, no RTL yet (2026-10-21) |
 
 Deferred: `top_module` stays `tt_um_example` (and `src/project.v` unchanged) until RTL starts; there is no SPEX RTL in this phase. Rename to `tt_um_srujan0006_spex` (or similar) together with `src/project.v` in the RTL phase.

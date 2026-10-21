@@ -10,7 +10,20 @@ experiments/area_probe/lib/
 experiments/area_probe/*.log
 formal/*/
 !formal/*.sby
-tchecker/build/
+/tchecker/build/
 .pytest_cache/
 scripts/mutate_model_results.json
-tchecker/
+/tchecker/
+
+# Tiny Tapeout template (ttihp-verilog-template@cmos5l 231f26a)
+.DS_Store
+.idea
+*.fst.hier
+runs
+tt_submission
+src/user_config.json
+src/config_merged.json
+test/sim_build
+test/__pycache__/
+test/results.xml
+test/gate_level_netlist.v
