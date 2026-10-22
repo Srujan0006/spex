@@ -12,8 +12,8 @@ back-to-back pairs (N below FS, 68.04 um apart, so no cell row fits between) at 
 both ends and every logic channel faces pins; location-word macros as a pair in the open area right of the walls
 (x = 1262.24); coverage at the bottom left (x = 3.36, as PRISM). Macros of different widths never share an x range
 (README.md, stripe findings); x = 3.36 + 11.24 i and y = 3.78 k keep every macro on PRISM's stripe grid.
-Flow settings (OPENROAD_THREADS = 4, ...) are copied from fp5/src/config.json, except fp5's antenna-repair cap: the
-variants use LibreLane's default (3 re-routes), as the real design will (fp_one_engine kept 4 antenna nets with 1).
+Flow settings (OPENROAD_THREADS = 4, ...) are copied from fp5/src/config.json; antenna handling is set in main()
+(heuristic diode insertion before routing, one re-route).
 """
 import json
 import os
@@ -184,6 +184,10 @@ def main():
         cfg["PDN_MACRO_CONNECTIONS"] = [c for t in tiles for c in _conn(t)]
         cfg["PL_TARGET_DENSITY_PCT"] = DENSITY[name]
         cfg["ROUTING_OBSTRUCTIONS"] = obstructions(tiles)
+        # antenna: diodes placed by heuristic before routing, then at most one re-route (each re-route of
+        # fp_one_engine cost about an hour and made routing worse: 22 -> 46 -> 70 violations, CI 39640707514)
+        cfg["RUN_HEURISTIC_DIODE_INSERTION"] = True
+        cfg["DRT_ANTENNA_REPAIR_ITERS"] = 1
         check_geometry(name, tiles)
         json.dump(cfg, open(os.path.join(src, "config.json"), "w"), indent=2)
         info = open(os.path.join(HERE, "fp5", "info.yaml")).read()

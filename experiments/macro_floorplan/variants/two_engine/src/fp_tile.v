@@ -18,16 +18,22 @@ module fp_tile #(
     localparam DW = (KIND == 0) ? 64 : (KIND == 1) ? 32 : 16;
     localparam TA = $clog2(TW);
 
+    // din registered inside the tile, so the placer can put this register next to the tile's logic: the shared
+    // synchroniser in the top then only drives one flop per tile (fp_one_engine CI 39640707514 failed slow-corner
+    // setup on synchroniser-to-table paths across the die)
+    reg [7:0] dr;
+    always @(posedge clk) dr <= din;
+
     reg [31:0] lfsr;
     always @(posedge clk or negedge rst_n)
         if (!rst_n) lfsr <= SEED;
-        else lfsr <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0] ^ din[0]};
+        else lfsr <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0] ^ dr[0]};
 
     wire [DW-1:0] wide;
     genvar i;
     generate
         for (i = 0; i < DW; i = i + 1) begin : g_wide
-            assign wide[i] = lfsr[i % 32] ^ lfsr[(i * 7 + 3) % 32] ^ din[i % 8];
+            assign wide[i] = lfsr[i % 32] ^ lfsr[(i * 7 + 3) % 32] ^ dr[i % 8];
         end
     endgenerate
 
@@ -58,8 +64,8 @@ module fp_tile #(
 
     reg [DW-1:0] qr;
     reg [7:0] tbl [0:TW-1];
-    wire [7:0] r0 = tbl[lfsr[TA+3:4]], r1 = tbl[lfsr[TA+9:10]], r2 = tbl[lfsr[TA+15:16]] , r3 = tbl[din[TA-1:0] ^ qr[TA-1:0]];
-    always @(posedge clk) tbl[lfsr[TA+20:21]] <= qr[7:0] ^ qr[DW-1:DW-8] ^ din ^ r3;
+    wire [7:0] r0 = tbl[lfsr[TA+3:4]], r1 = tbl[lfsr[TA+9:10]], r2 = tbl[lfsr[TA+15:16]] , r3 = tbl[dr[TA-1:0] ^ qr[TA-1:0]];
+    always @(posedge clk) tbl[lfsr[TA+20:21]] <= qr[7:0] ^ qr[DW-1:DW-8] ^ dr ^ r3;
     always @(posedge clk or negedge rst_n)
         if (!rst_n) begin
             qr <= {DW{1'b0}};

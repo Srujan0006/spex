@@ -181,5 +181,7 @@
     "Metal2 3.36 3.78 420.00 119.96",
     "Metal3 3.36 3.78 420.00 119.96",
     "Metal4 3.36 3.78 420.00 119.96"
-  ]
+  ],
+  "RUN_HEURISTIC_DIODE_INSERTION": true,
+  "DRT_ANTENNA_REPAIR_ITERS": 1
 }
