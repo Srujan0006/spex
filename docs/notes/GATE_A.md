@@ -24,7 +24,7 @@ Both conditions of the stop rule hold, twelve days before the gate date.
 
 **What the verification rests on [Measured]:** standards-derived oracles with planted faults (≥ 5 per protocol and
 role); metamorphic relations (duality, time scaling, engine permutation; C6); L1 translation validation of every
-compiled image (C9); mutation testing: 68/68 planted bugs in the model, compiler, tables and exporter killed (`python3 -B scripts/mutate_model.py`, 2026-10-22); TChecker on UART, SPI and
+compiled image (C9); mutation testing: 71/71 planted bugs in the model, compiler, tables and exporter killed (`python3 -B scripts/mutate_model.py`, 2026-10-22); TChecker on UART, SPI and
 I2C, each with specs that must fail (C7, C10). Bugs found and fixed so far: 27 (`docs/BUGS.md`), by method.
 
 **Decisions taken to get here:** S17–S48 (semantics, tables, 16-bit clocks with counted loops, 1P coverage macro),
