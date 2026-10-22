@@ -26,4 +26,8 @@ end reads.
 
 ## Results
 
-(pending the first CI run)
+**Run 1 (CI 39751181520, 2026-10-22): not routed.** Cancelled by the 320-min step timeout in detailed routing:
+25,343 violations after the first pass, 4,818 at the end (Metal2/Metal3 shorts and spacing), although utilisation was
+0.193 and global routing had only 71 overflowing tiles. The config had heuristic diode insertion (copied from the
+variants' setting of that day, BUGS 28): it inserted 7,958 diodes. Timing from this run is not meaningful. Run 2 uses
+fp5's antenna recipe exactly (no heuristic diodes, one antenna re-route).
