@@ -7,6 +7,15 @@ Models (expected reachability of the observer's `bad` label):
   uart_broken     the same spec plus a planted edge that starts a new frame from the middle of one  -> reachable (teeth)
   uart_time       uart_8n1 with the timed observer "stop bit 9T +- d after the start bit"            -> unreachable
   uart_slow_stop  the same, but the spec's stop window is 10 cycles wider (a timing-only bug)        -> reachable (teeth)
+  spi_m<k>        spec/spi.py, mode k = 0..3, with "every byte boundary follows exactly 8 samples since
+                  the previous boundary or chip select"                                            -> unreachable
+  spi_broken      mode 0 plus a planted byte boundary with no bit-count guard                       -> reachable (teeth)
+  i2c_<m>_nest    spec/i2c.py (Standard, Fast) with "START, repeated START and STOP nest: no STOP or
+                  repeated START while idle, no plain START while busy"                            -> unreachable
+  i2c_stray_stop  Fast plus a planted STOP from IDLE                                               -> reachable (teeth)
+  i2c_<m>_buf     the same specs with the timed observer "STOP to next START >= tBUF", tBUF from
+                  UM10204 Table 10 (not from the spec)                                             -> unreachable
+  i2c_short_buf   Fast with the bus-free wait 10 cycles shorter (a timing-only bug)               -> reachable (teeth)
 Exit status: 0 if every verdict matches, 1 otherwise, 2 if tck-reach is missing (models are still written).
 """
 import argparse
@@ -18,9 +27,13 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import math  # noqa: E402
+
+from spec.i2c import i2c  # noqa: E402
+from spec.spi import spi  # noqa: E402
 from spec.uart_8n1 import uart_8n1  # noqa: E402
 from spex.dsl import Op  # noqa: E402
-from spex.tchecker import NO_DOUBLE_START, export, frame_time  # noqa: E402
+from spex.tchecker import NO_DOUBLE_START, Observer, export, frame_time  # noqa: E402
 
 UART_EVENTS = {"start bit": "start", "stop bit": "stop"}
 
@@ -44,6 +57,73 @@ def slow_stop_uart():
     return s
 
 
+# ---------------------------------------------------------------- SPI
+SPI_EVENTS = {"CS fall: first MISO bit": "select", "CS rise": "deselect", "leading edge: sample": "sample",
+              "trailing edge: byte boundary": "byte"}                    # CPHA = 0 (modes 0, 2)
+SPI_EVENTS_CPHA1 = {"CS fall: present the preloaded byte": "select", "CS rise, no bits": "deselect",
+                    "CS rise after a byte: push it, preload the next": "byte", "trailing edge: sample": "sample",
+                    "leading edge: byte boundary": "byte"}               # CPHA = 1 (modes 1, 3)
+
+
+def eight_samples_per_byte() -> Observer:
+    """n<i> = i samples since the last byte boundary or chip select; a boundary must come after exactly 8."""
+    n = [f"n{i}" for i in range(9)]
+    edges = [(n[i], n[i + 1], "sample") for i in range(8)] + [(n[8], "bad", "sample"), (n[8], "ok", "byte")]
+    edges += [(n[i], "bad", "byte") for i in range(8)] + [("ok", n[1], "sample"), ("ok", "bad", "byte")]
+    edges += [(x, n[0], ev) for x in n + ["ok"] for ev in ("select", "deselect")]
+    obs = Observer(name="obs_byte", locations=n + ["ok", "bad"], initial=n[0], edges=edges)
+    obs.ok = ("ok",)                                  # a whole byte is reachable: the check is not vacuous
+    return obs
+
+
+def broken_spi():
+    s = spi(0)
+    L = {l.name: l for l in s.locs}
+    # planted bug: a byte boundary with no bit-count guard
+    s.emit(L["HI"], L["CZ"], "tgt", {"MISO": 0}, on={"SCK": 0}, op=Op("PUSH_LOAD_PEEK", "MISO"), label="broken boundary")
+    return s
+
+
+# ---------------------------------------------------------------- I2C
+I2C_EVENTS = {"START": "start", "repeated START": "rstart", "STOP": "stop"}
+TBUF_US = {"standard": 4.7, "fast": 1.3}            # UM10204 Rev. 7.0 Table 10, bus free time between STOP and START
+F_CLK = 48e6
+
+
+def i2c_nesting() -> Observer:
+    obs = Observer(name="obs_nest", locations=["idle", "busy", "done", "bad"], initial="idle", edges=[
+        ("idle", "busy", "start"), ("done", "busy", "start"), ("busy", "busy", "rstart"), ("busy", "done", "stop"),
+        ("idle", "bad", "stop"), ("idle", "bad", "rstart"), ("done", "bad", "stop"), ("done", "bad", "rstart"),
+        ("busy", "bad", "start")])
+    obs.ok = ("done",)                                # a whole transaction is reachable
+    return obs
+
+
+def bus_free(mode: str) -> Observer:
+    tbuf = math.ceil(TBUF_US[mode] * 1e-6 * F_CLK - 1e-9)
+    obs = Observer(name="obs_buf", locations=["first", "free", "ok", "bad"], initial="first", clocks=["y"], edges=[
+        ("first", "ok", "start", "", ""), ("ok", "free", "stop", "", "y=0"),
+        ("free", "ok", "start", f"y>={tbuf}", ""), ("free", "bad", "start", f"y<{tbuf}", ""),
+        ("ok", "ok", "start", "", ""), ("ok", "ok", "rstart", "", ""), ("free", "free", "rstart", "", ""),
+        ("free", "free", "stop", "", ""), ("first", "first", "stop", "", ""), ("first", "first", "rstart", "", "")])
+    obs.ok = ("ok",)
+    return obs
+
+
+def stray_stop_i2c():
+    s = i2c("fast")
+    L = {l.name: l for l in s.locs}
+    s.internal(L["IDLE"], L["BUSFREE"], after=s.window("c", 0, 0), label="stray STOP")   # planted bug
+    return s
+
+
+def short_buf_i2c():
+    s = i2c("fast")
+    e = next(e for e in s.edges if e.label == "bus free")
+    e.window = s.window("c", e.window.lo - 10, e.window.hi - 10)                        # planted timing bug
+    return s
+
+
 def models():
     yield "uart_8n1", export(uart_8n1(T, D), UART_EVENTS, [NO_DOUBLE_START]), False
     ev = dict(UART_EVENTS, **{"broken restart": "start"})
@@ -51,6 +131,18 @@ def models():
     obs = frame_time(9 * T - D, 9 * T + D)
     yield "uart_time", export(uart_8n1(T, D), UART_EVENTS, [obs], name="uart_time"), False
     yield "uart_slow_stop", export(slow_stop_uart(), UART_EVENTS, [obs], name="uart_slow_stop"), True
+    for m in range(4):
+        ev = SPI_EVENTS_CPHA1 if m & 1 else SPI_EVENTS
+        yield f"spi_m{m}", export(spi(m), ev, [eight_samples_per_byte()], name=f"spi_m{m}"), False
+    ev = dict(SPI_EVENTS, **{"broken boundary": "byte"})
+    yield "spi_broken", export(broken_spi(), ev, [eight_samples_per_byte()], name="spi_broken"), True
+    for mode in ("standard", "fast"):
+        yield f"i2c_{mode}_nest", export(i2c(mode), I2C_EVENTS, [i2c_nesting()], name=f"i2c_{mode}_nest"), False
+    ev = dict(I2C_EVENTS, **{"stray STOP": "stop"})
+    yield "i2c_stray_stop", export(stray_stop_i2c(), ev, [i2c_nesting()], name="i2c_stray_stop"), True
+    for mode in ("standard", "fast"):
+        yield f"i2c_{mode}_buf", export(i2c(mode), I2C_EVENTS, [bus_free(mode)], name=f"i2c_{mode}_buf"), False
+    yield "i2c_short_buf", export(short_buf_i2c(), I2C_EVENTS, [bus_free("fast")], name="i2c_short_buf"), True
 
 
 def main():

@@ -19,14 +19,13 @@ Both conditions of the stop rule hold, twelve days before the gate date.
 3. **Table capacity is the binding limit,** not locations: the I2C controller uses 8/8 constants and 15/16 actions,
    and I2C Check uses 7/7 pin patterns (table below). A held-out protocol more complex than I2C may not fit.
 4. **Known semantic limit:** a UART stop bit up to 2 cycles short of T − d passes Check (SEMANTICS R5.8).
-5. **Proof status:** TChecker covers the UART spec (C7). L1 translation validation (independent decoder, C9) checks
-   the encoding of every spec and role, not the role transformation itself. Open: SPI and I2C TChecker exports, the
-   `COV_LOST` formal property, and everything at L2 and below (no RTL).
+5. **Proof status:** TChecker covers the UART (C7), SPI and I2C specs (C10). L1 translation validation (independent decoder, C9) checks
+   the encoding of every spec and role, not the role transformation itself. Open: the `COV_LOST` formal property, and everything at L2 and below (no RTL).
 
 **What the verification rests on [Measured]:** standards-derived oracles with planted faults (≥ 5 per protocol and
 role); metamorphic relations (duality, time scaling, engine permutation; C6); L1 translation validation of every
-compiled image (C9); mutation testing: 68/68 planted bugs in the model, compiler, tables and exporter killed (`python3 -B scripts/mutate_model.py`, 2026-10-22); TChecker on UART with
-a spec that must fail (C7). Bugs found and fixed so far: 27 (`docs/BUGS.md`), by method.
+compiled image (C9); mutation testing: 68/68 planted bugs in the model, compiler, tables and exporter killed (`python3 -B scripts/mutate_model.py`, 2026-10-22); TChecker on UART, SPI and
+I2C, each with specs that must fail (C7, C10). Bugs found and fixed so far: 27 (`docs/BUGS.md`), by method.
 
 **Decisions taken to get here:** S17–S48 (semantics, tables, 16-bit clocks with counted loops, 1P coverage macro),
 S46 (two engines rejected), S14 (SystemVerilog). Open: S46 one engine vs asymmetric; S49 pinout (proposed).

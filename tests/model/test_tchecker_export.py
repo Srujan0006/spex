@@ -69,4 +69,21 @@ def test_model_check_with_tchecker(tmp_path):
     script = os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "export_tchecker.py")
     r = subprocess.run([sys.executable, "-B", script, str(tmp_path), "--tck-reach", exe], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert r.stdout.count(": OK") == 6
+    assert "MISMATCH" not in r.stdout and r.stdout.count(": OK") == 28     # 15 models: bad on each, ok on the 13 that have it
+
+
+def test_spi_and_i2c_export_structure():
+    """SPI and I2C models (owner, 2026-10-22). The planted bugs are the teeth models spi_broken, i2c_stray_stop and
+    i2c_short_buf, which the `tchecker` CI workflow must find reachable."""
+    models = {n: (t, exp) for n, t, exp in export_tchecker.models()}
+    for m in range(4):
+        t, exp = models[f"spi_m{m}"]
+        assert exp is False
+        assert {l.split(":")[1].split("@")[1] for l in lines(t, "sync:")} == {"select", "deselect", "sample", "byte"}
+    assert models["spi_broken"][1] is True
+    # tBUF comes from UM10204 Table 10 at 48 MHz, not from the spec: 4.7 us -> 226 cycles, 1.3 us -> 63
+    assert "obs_buf_y>=226" in models["i2c_standard_buf"][0] and "obs_buf_y>=63" in models["i2c_fast_buf"][0]
+    good, short = models["i2c_fast_buf"][0], models["i2c_short_buf"][0]
+    diff = [(a, b) for a, b in zip(good.splitlines(), short.splitlines()) if a != b]
+    assert all("system:" in a or "BUSFREE" in a for a, _ in diff) and any("BUSFREE" in a for a, _ in diff)
+    assert models["i2c_stray_stop"][1] is True and models["i2c_short_buf"][1] is True
