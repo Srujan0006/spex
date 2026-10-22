@@ -6,7 +6,7 @@
       "+OpenROAD.GeneratePDN": "Project.ExtendPowerStripes"
     }
   },
-  "PL_TARGET_DENSITY_PCT": 60,
+  "PL_TARGET_DENSITY_PCT": 45,
   "CLOCK_PERIOD": 20.8,
   "OPENROAD_THREADS": 4,
   "DRT_OPT_ITERS": 15,
@@ -22,16 +22,16 @@
         "u_m0": {
           "location": [
             464.2,
-            287.28
+            226.8
           ],
-          "orientation": "N"
+          "orientation": "FS"
         },
         "u_m1": {
           "location": [
             464.2,
-            355.32
+            491.4
           ],
-          "orientation": "FS"
+          "orientation": "N"
         }
       },
       "gds": [
@@ -57,13 +57,49 @@
       "spice": [
         "pdk_dir::libs.ref/sg13cmos5l_sram/cdl/RM_IHPSG13_1P_64x64_c2_bm_bist.cdl"
       ]
+    },
+    "RM_IHPSG13_1P_64x16_c2": {
+      "instances": {
+        "u_loc": {
+          "location": [
+            216.92,
+            355.32
+          ],
+          "orientation": "N"
+        }
+      },
+      "gds": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/gds/RM_IHPSG13_1P_64x16_c2.gds"
+      ],
+      "lef": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/lef/RM_IHPSG13_1P_64x16_c2.lef"
+      ],
+      "lib": {
+        "nom_typ_1p20V_25C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x16_c2_typ_1p20V_25C.lib"
+        ],
+        "nom_fast_1p32V_m40C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x16_c2_fast_1p32V_m55C.lib"
+        ],
+        "nom_slow_1p08V_125C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x16_c2_slow_1p08V_125C.lib"
+        ]
+      },
+      "nl": [
+        "dir::RM_IHPSG13_1P_64x16_c2.v"
+      ],
+      "spice": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/cdl/RM_IHPSG13_1P_64x16_c2.cdl"
+      ]
     }
   },
   "PDN_MACRO_CONNECTIONS": [
     "u_m0 VPWR VGND VDD! VSS!",
     "u_m0 VPWR VGND VDDARRAY! VSS!",
     "u_m1 VPWR VGND VDD! VSS!",
-    "u_m1 VPWR VGND VDDARRAY! VSS!"
+    "u_m1 VPWR VGND VDDARRAY! VSS!",
+    "u_loc VPWR VGND VDD! VSS!",
+    "u_loc VPWR VGND VDDARRAY! VSS!"
   ],
   "PDN_CFG": "dir::pdn_cfg.tcl",
   "EXTEND_STRIPES_SRAM_ALL_COLUMNS": false,
@@ -71,12 +107,15 @@
   "FP_MACRO_HORIZONTAL_HALO": 2.0,
   "FP_MACRO_VERTICAL_HALO": 0.48,
   "ROUTING_OBSTRUCTIONS": [
-    "Metal2 464.20 289.88 1248.68 351.64",
-    "Metal3 464.20 289.88 1248.68 351.64",
-    "Metal4 464.20 289.88 1248.68 351.64",
-    "Metal2 464.20 355.32 1248.68 417.08",
-    "Metal3 464.20 355.32 1248.68 417.08",
-    "Metal4 464.20 355.32 1248.68 417.08"
+    "Metal2 464.20 226.80 1248.68 288.56",
+    "Metal3 464.20 226.80 1248.68 288.56",
+    "Metal4 464.20 226.80 1248.68 288.56",
+    "Metal2 464.20 494.00 1248.68 555.76",
+    "Metal3 464.20 494.00 1248.68 555.76",
+    "Metal4 464.20 494.00 1248.68 555.76",
+    "Metal2 216.92 357.92 453.72 419.68",
+    "Metal3 216.92 357.92 453.72 419.68",
+    "Metal4 216.92 357.92 453.72 419.68"
   ],
   "MAGIC_MACRO_STD_CELL_SOURCE": "PDK",
   "MAGIC_EXT_ABSTRACT_CELLS": [
@@ -105,5 +144,8 @@
   "RUN_CTS": 1,
   "FP_PDN_MULTILAYER": 0,
   "MAGIC_DEF_LABELS": 0,
-  "MAGIC_WRITE_LEF_PINONLY": 1
+  "MAGIC_WRITE_LEF_PINONLY": 1,
+  "RUN_POST_GRT_DESIGN_REPAIR": true,
+  "RUN_POST_GRT_RESIZER_TIMING": true,
+  "//2spike": "v2 floorplan (2026-10-22): the 64x64 pair faces one 200 um logic channel (A_DOUT along the whole long edge, address at its middle, LEF 2bbec755); location-word macro left of the channel; density 45; post-GRT repair as PRISM."
 }

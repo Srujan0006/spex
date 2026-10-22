@@ -6,6 +6,7 @@ MODEL = "spex/refsim/model.py"
 COMPILER = "spex/compiler/__init__.py"
 TABLES = "spex/refsim/tables.py"
 TCK = "spex/tchecker/__init__.py"
+HIST = "spex/refsim/clock_history.py"
 
 _MODEL_MUTANTS = [
     ("reset ignores trigger age", "R1.6", "ne.x[c] = 1 + a", "ne.x[c] = 1", "test_rules::test_R1_6"),
@@ -151,6 +152,13 @@ _TABLES_MUTANTS = [
      "window=(w >> 19) & 7", "test_rules::test_R11_1_window_index_msb"),
 ]
 
+_HIST_MUTANTS = [
+    ("history keeps counting at saturation", "R2.5/history", "return XMAX, XMAX - 1, XMAX - 2", "return XMAX, XMAX, XMAX - 1",
+     "test_clock_history::test_invariant_is_inductive_for_every_clock_value"),
+    ("reset history ignores the age", "R1.6/history", "return 1 + a, a, max(a - 1, 0)", "return 1 + a, 0, 0",
+     "test_clock_history::test_invariant_is_inductive_for_every_clock_value"),
+]
+
 _TCK_MUTANTS = [
     ("urgency invariant dropped", "R3.1/R4.5 export", 'inv.append(f"{_ident(c.pop())}<={min(e.window.lo for e in out)}")',
      "pass", "test_tchecker_export::test_uart_export_structure"),
@@ -159,4 +167,5 @@ _TCK_MUTANTS = [
 ]
 
 MUTANTS = ([(MODEL,) + m for m in _MODEL_MUTANTS] + [(COMPILER,) + m for m in _COMPILER_MUTANTS]
-           + [(TABLES,) + m for m in _TABLES_MUTANTS] + [(TCK,) + m for m in _TCK_MUTANTS])
+           + [(TABLES,) + m for m in _TABLES_MUTANTS] + [(TCK,) + m for m in _TCK_MUTANTS]
+           + [(HIST,) + m for m in _HIST_MUTANTS])

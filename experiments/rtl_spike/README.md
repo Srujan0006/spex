@@ -8,21 +8,32 @@ R5.2) → trigger age (R5.4) → `v = max(x_c − a, 0)` (R2.5) → clock guard 
 → data guard (R2.6) → lowest enabled slot (R3.2) → target → the macros' address and read enable for the next entry
 (through the host-write address mux), and the clock resets `x := 1 + a` (R1.6).
 
-`src/spex_loop.sv` is **not** the SPEX RTL: no actions, violations, coverage, events, FIFOs, LFSR policies or host
-port (tables load through a scan chain; the policy is "earliest"). It keeps every gate between the macro output and
-the macro address, because that is the path that sets the clock. SystemVerilog (S14), in a subset every Yosys front
-end reads.
+`src/spex_loop.sv` is **not** the SPEX RTL: no events, FIFOs, coverage, trace, host port or LFSR policies (the policy
+is "earliest"; tables load through a scan chain). SystemVerilog (S14), in a subset every Yosys front end reads.
 
-- `src/project.sv`: top: 2-flop pin synchroniser (R4.1), host stand-in (scan chains), the two macros.
-- `tb/tb_spike.sv` with `tb/sram_64x64_beh.v` (behavioural SRAM, simulation only): two locations, a clock edge
-  (x0 ≥ 5) and a pin edge (pin 0 rises); expects 0 → 1 → 0 → … Planted bug: inverting the pin guard's level match
-  makes it fail.
+**v2 (owner decisions 2026-10-22), split as R3.5/R4.2 already allow, no rule change:**
+- *Entry cycle (path A):* held macro output (4 edge words from 2 × 1P_64x64, the location word from 1P_64x16) →
+  pattern / window / constant table reads → per-slot registers `{valid, target, mask, value, mode, ck, clock, lo, hi,
+  t_e, data kind, constant, action, resets}` and the location's `{watch, invariant clock, invariant hi}`.
+- *Evaluation cycle (path B):* only those registers, the pins, the pending masks and the clocks → guards → lowest
+  enabled slot, or UNEXPECTED / TIMEOUT → next location (resync 0) → macro address. No table read or macro output.
+- *Clock history:* `v = max(x − a, 0)` is a 3:1 select of `x`, `x_d1`, `x_d2` per clock (reference and proof:
+  `spex/refsim/clock_history.py`, `tests/model/test_clock_history.py`).
+- *Action path:* fired slot → 16-entry action table → pin writes (PP/OD) and LOAD / SHIN / SHOUT / CLR / INC → registers.
+- *Floorplan:* the 64x64 pair faces one 200 µm logic channel (u_m0 FS at y 226.80, u_m1 N at y 491.40, x 464.20);
+  the 64x16 at x 216.92, y 355.32; placement density 45 %; post-global-route design and timing repair on (as PRISM).
+- *Per-path timing:* `sta_paths.tcl`, run by the workflow on the final database at every corner (A, B, action).
+
+Flip-flops added by v2 per engine: 4 slots × 102 + 27 location + 96 clock history = **531** (owner estimate ~400).
+
+- `src/project.sv`: top: 2-flop pin synchroniser (R4.1), host stand-in (scan chains), the three macros.
+- `tb/tb_spike.sv` with behavioural SRAM models (simulation only): a two-location loop with a PP action, irregular pin
+  toggles that give resets with ages 1 and 2, a clock driven into saturation, the clock-history invariant checked
+  every cycle, and a TIMEOUT violation with resync. Planted bugs (saturation history, reset history ignoring the
+  age, TIMEOUT disabled) each make it fail.
 
       cd experiments/rtl_spike/tb
-      iverilog -g2012 -o spike.vvp tb_spike.sv sram_64x64_beh.v ../src/project.sv ../src/spex_loop.sv && vvp -n spike.vvp
-
-- Harden: workflow `rtl_spike` (8x4, CLOCK_PERIOD 20.8 ns, fp5's floorplan recipe with the two macros as a
-  back-to-back pair at x = 464.20); it prints the post-route STA summary and the worst slow-corner setup paths.
+      iverilog -g2012 -o spike.vvp tb_spike.sv sram_64x64_beh.v sram_64x16_beh.v ../src/project.sv ../src/spex_loop.sv && vvp -n spike.vvp
 
 ## Results
 
@@ -32,7 +43,7 @@ end reads.
 variants' setting of that day, BUGS 28): it inserted 7,958 diodes. Timing from this run is not meaningful. Run 2 uses
 fp5's antenna recipe exactly (no heuristic diodes, one antenna re-route).
 
-**Run 3 (CI 39796771222, 2026-10-22, fp5 antenna recipe, 15-pass cap): routed to 591 DRC violations, timing far off.**
+**Run 3 (CI 39796771222, 2026-10-22, fp5 antenna recipe, 15-pass cap): unrouted, not representative (owner, 2026-10-22).**
 Utilisation 0.193; detailed routing stopped by the 15-pass cap at 591 violations (job 1 h 26 min). Post-route STA at
 20.8 ns, on that unfinished layout [Measured, job log]:
 
@@ -49,3 +60,9 @@ are long wires of 0.17–0.44 pF driven by 1x cells (slews 2.6–11.4 ns) and co
 Readings [Estimate]: the unrepaired long wires (68 max-cap violations) and the unfinished route make this an upper
 bound, not the loop's real delay; the macro's 5.6 ns clock-to-output plus ~17 ns of logic alone is already above
 20.8 ns at the slow corner, so the loop as written does not close at 48 MHz on the slow corner even with good wires.
+
+Owner decision 2026-10-22: run 3's timing is not evidence. The spike must first route to 0 violations with 0 max-cap
+violations. Cause found in the macro LEF [Measured, IHP-Open-PDK 2bbec755]: the 64x64's 64 `A_DOUT` pins run along its
+whole long edge (x 10.6–773.6 µm) and its address/control pins sit at the middle (x 387–399 µm); run 3's back-to-back
+pair put u_m0's pins in the channel below the pair and u_m1's in the channel above, so the loop logic straddled the
+macros. Spike v2 puts the two 64x64 macros face to face around one logic channel.

@@ -8,6 +8,7 @@ on:
     paths:
       - "experiments/rtl_spike/src/**"
       - "experiments/rtl_spike/info.yaml"
+      - "experiments/rtl_spike/sta_paths.tcl"
       - ".github/workflows/rtl_spike.yaml"
 
 
@@ -44,6 +45,18 @@ jobs:
           cat runs/wokwi/*stapostpnr*/summary.rpt 2>/dev/null || echo "no post-route STA (flow stopped earlier)"
           f=$(ls runs/wokwi/*stapostpnr*/nom_slow*/max.rpt 2>/dev/null | head -1)
           [ -n "$f" ] && head -200 "$f" || true
+
+      - name: Per-path timing (A, B, action) at each corner
+        if: always()
+        run: |
+          [ -d runs/wokwi/final/odb ] || { echo "no final database (flow stopped earlier)"; exit 0; }
+          img=ghcr.io/librelane/librelane:3.1.0.dev3
+          for c in slow typ fast; do
+            docker run --rm -v "$PWD:$PWD" -v "/home/runner/pdk:/home/runner/pdk" -w "$PWD" \
+              -e PDK_ROOT=/home/runner/pdk -e CORNER=$c $img \
+              openroad -exit -no_splash experiments/rtl_spike/sta_paths.tcl 2>&1 | tee "sta_paths_$c.rpt" || true
+          done
+          mkdir -p runs/sta_paths && mv sta_paths_*.rpt runs/sta_paths/ || true
 
       - name: Upload the LibreLane run directory (DRC reports, STA reports, logs)
         if: always()
