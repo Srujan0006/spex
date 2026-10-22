@@ -13,8 +13,8 @@ Both conditions of the stop rule hold, twelve days before the gate date.
 1. **Condition 1 is model-level.** No SPEX RTL exists yet; the claim is that the semantics, the compiler and the specs
    work, not that silicon does. The RTL is the next phase (S14: SystemVerilog).
 2. **Condition 2 uses a light filler.** `fp5` is at 26 % utilisation. Engine-sized variants: two full engines do not
-   place (0.79, rejected, S46); one engine (0.45) routed to 0 DRC with LVS clean once (CI 39612722226) but not
-   consistently; asymmetric is being rerun. Filler timing is **not representative** of the engine (owner, 2026-10-22);
+   place (0.79, rejected); asymmetric (0.65) does not route; **one engine (0.45) routes, is LVS clean and passes
+   precheck** (CI 39773589405), so S46 selects one engine. Filler timing is **not representative** of the engine (owner, 2026-10-22);
    the engine's timing comes from the critical-loop RTL spike.
 3. **Table capacity is the binding limit,** not locations: the I2C controller uses 8/8 constants and 15/16 actions,
    and I2C Check uses 7/7 pin patterns (table below). A held-out protocol more complex than I2C may not fit.
@@ -28,7 +28,7 @@ compiled image (C9); mutation testing: 71/71 planted bugs in the model, compiler
 I2C, each with specs that must fail (C7, C10). Bugs found and fixed so far: 27 (`docs/BUGS.md`), by method.
 
 **Decisions taken to get here:** S17–S48 (semantics, tables, 16-bit clocks with counted loops, 1P coverage macro),
-S46 (two engines rejected), S14 (SystemVerilog). Open: S46 one engine vs asymmetric; S49 pinout (proposed).
+S46 (two engines rejected), S14 (SystemVerilog). S46 decided by the owner's rule: one engine. Open: S49 pinout (proposed).
 
 ## Status detail
 

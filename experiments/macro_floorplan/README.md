@@ -276,3 +276,11 @@ fp5's placement rules and antenna recipe (no heuristic diodes, one re-route), ut
 an error in this flow, and not a precheck item). Post-route STA at 20 ns, **filler timing not representative**
 (owner, 2026-10-22): slow setup −2.48 ns (255 reg-to-reg endpoints), typical +6.20 ns, fast +11.47 ns; hold fast
 −0.19 ns (6 paths), typical +0.04 ns, slow +0.45 ns [Measured, job log].
+
+## fp_asym does not route (CI 39773563503, 2026-10-22)
+
+fp5's placement rules and antenna recipe, effective utilisation 0.653 (one full engine plus a Check-only engine).
+Global routing: 76.4 % of the resource used, Metal2 86.8 %, Metal3 89.8 %, 18,071 overflowing tiles. Detailed routing
+(from 12:55) went 96,429 → 72,996 → 64,145 → 44,394 violations in about 4 h and was stopped by the 320-min step limit
+(the run predates the 15-pass cap) [Measured, job log]. With three signal layers the asymmetric filler is too full to
+route. **S46 by the owner's rule (routes, LVS clean, precheck passes): one engine.**
