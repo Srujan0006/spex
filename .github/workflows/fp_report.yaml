@@ -9,8 +9,12 @@ on:
         description: "CI run id of the floorplan run"
         required: true
       artifact:
-        description: "runs/ artifact name (fp5-runs, fp_one_engine-runs, fp_asym-runs, fp_two_engine-runs)"
+        description: "runs/ artifact name (fp5-runs, fp_one_engine-runs, fp_asym-runs, fp_two_engine-runs, rtl_spike-runs)"
         required: true
+      config:
+        description: "LibreLane config of that run, for the DRC locations (e.g. experiments/rtl_spike/src/config.json)"
+        required: false
+        default: ""
 
 jobs:
   report:
@@ -18,6 +22,7 @@ jobs:
     permissions:
       actions: read
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact }}
@@ -45,6 +50,16 @@ jobs:
           f=$(ls "$w"/*stapostpnr*/nom_slow*/max.rpt 2>/dev/null | head -1); [ -n "$f" ] && head -120 "$f"
           echo "== worst hold paths, fast corner"
           f=$(ls "$w"/*stapostpnr*/nom_fast*/min.rpt 2>/dev/null | head -1); [ -n "$f" ] && head -120 "$f"
+          true
+
+      - name: Where the routing violations are, and the max-capacitance violators
+        run: |
+          w=runs/wokwi
+          [ -d "$w" ] || w=$(dirname "$(find runs -maxdepth 3 -name resolved.json | head -1)")
+          if [ -n "${{ inputs.config }}" ]; then python3 experiments/macro_floorplan/drc_where.py "$w" "${{ inputs.config }}"; fi
+          for f in $(ls "$w"/*stapostpnr*/nom_slow*/*.rpt 2>/dev/null); do
+            if grep -qiE "max cap|max_cap|capacitance" "$f"; then echo "== $f"; grep -iE -A40 "max cap|capacitance" "$f" | head -60; fi
+          done
           true
 
       - name: Keep the small reports
