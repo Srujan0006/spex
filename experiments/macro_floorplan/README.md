@@ -200,3 +200,20 @@ delay): an unbuffered long wire, also counted in the max-cap warnings. 124 of th
 input-to-register paths. This is a property of the filler (`fp_tile.v` feeds raw pad inputs through logic to every
 tile), not of the macros or the placement; the SPEX engine registers its inputs in the 2-flop synchroniser (R4.1)
 before any logic. Next: register the filler's inputs as the real design does, and restore the default antenna repair.
+
+## fp_one_engine with input synchronisers and default antenna repair (CI 39640707514, 2026-10-21): worse
+
+Cancelled by the 320-min step timeout in GDS stream-out (17:05–22:26). Detailed routing ended at **22** violations
+(the previous run reached 0), and each of the three antenna re-routes made it worse while costing about an hour:
+22 → 46 → 70 (19:37, 20:41, 22:21). Post-route STA, on a layout with 70 DRC violations [Measured, job log]:
+
+| Corner | Setup WS | Setup violations (reg-to-reg) | Hold WS | Hold violations |
+|---|---|---|---|---|
+| slow | **−3.492 ns** | 234 (234) | +0.563 ns | 0 |
+| typical | +5.232 ns | 0 | +0.287 ns | 0 |
+| fast | +10.617 ns | 0 | +0.094 ns | 0 |
+
+Hold is now met at every corner, but the setup failures moved from pad inputs to register-to-register paths: one
+synchroniser per input bus now drives every tile's table logic across the die. Readings [Estimate]: (1) the filler's
+`din` fan-out (a read address of every tile's table and a term of every macro input) is harsher than the engine's pin
+bus; (2) antenna repair by re-routing costs an hour per round on this layout and does not converge here.
