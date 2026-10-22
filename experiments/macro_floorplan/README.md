@@ -245,3 +245,11 @@ re-route on this layout has made it worse. Summary of the one_engine runs on the
 `fp_one_engine` runs above are labelled **filler timing not representative**: the filler's paths (a shared input
 fanned out to every table, LFSR-addressed mux trees) are not the engine's. Routing, LVS and precheck remain the
 criteria for the variants; the engine's own timing is measured on RTL (the critical-loop spike).
+
+## fp_asym with the fp5 placement (CI 39749337761, 2026-10-22): placement failed, caused by our diode setting
+
+Effective utilisation 0.653. The heuristic diode insertion enabled the day before (90 µm threshold) inserted 36,193
+diodes, and detailed placement then failed on 2,123 cells (DPL-0036). The same setting had put 28,333 diodes into
+fp_one_engine (CI 39716318069). BUGS 28: the variants go back to fp5's antenna recipe exactly (no heuristic diodes,
+one antenna re-route), keeping only "hold does not stop the flow"; fp_one_engine run 39749360673 (same bad setting) was
+cancelled and both variants rerun.
