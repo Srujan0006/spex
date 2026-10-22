@@ -9,6 +9,7 @@ on:
       - "experiments/rtl_spike/src/**"
       - "experiments/rtl_spike/info.yaml"
       - "experiments/rtl_spike/sta_paths.tcl"
+      - "experiments/rtl_spike/tb/**"
       - ".github/workflows/rtl_spike.yaml"
 
 
@@ -17,7 +18,26 @@ concurrency:                       # a newer run of the same workflow cancels a 
   cancel-in-progress: true
 
 jobs:
-  gds:
+  sim:                               # cheap gate on every push: lint and the testbench with planted-bug coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Verilator and Icarus Verilog
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq verilator iverilog > /dev/null
+      - name: Lint
+        working-directory: experiments/rtl_spike/src
+        run: verilator --lint-only -Wall -Wno-DECLFILENAME -Wno-UNUSEDSIGNAL -Wno-PINCONNECTEMPTY -Wno-UNUSEDPARAM
+             project.sv spex_loop.sv RM_IHPSG13_1P_64x64_c2_bm_bist.v RM_IHPSG13_1P_64x16_c2.v
+             --top-module tt_um_srujan0006_spike
+      - name: Testbench
+        working-directory: experiments/rtl_spike/tb
+        run: |
+          iverilog -g2012 -o spike.vvp tb_spike.sv sram_64x64_beh.v sram_64x16_beh.v ../src/project.sv ../src/spex_loop.sv
+          vvp -n spike.vvp | tee sim.log
+          grep -q "^PASS" sim.log
+  gds:                               # the heavy harden: manual only, and only after the testbench passes
+    needs: sim
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
