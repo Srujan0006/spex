@@ -63,3 +63,16 @@ constants per location (`python3 -B scripts/location_fit.py`) [Measured]: UART a
 constants), but I2C does not: location `AKA_LOW` uses 3 windows in Check and in both controller timings, and `CB_HIGH`
 uses 3 constants in the controller's Drive role (the STOP, repeated-START and next-byte tokens). A 2 + 2 record
 would need I2C rewritten (split those locations) or 3 + 3 records.
+
+## Cost of the critical-loop split (2026-10-22, owner task 6)
+
+Spike cores synthesised the same way (yowasp-yosys 0.70, typical liberty) [Measured]:
+
+| core | flip-flops | area |
+|---|---|---|
+| `experiments/rtl_spike` v1 (`353c0f3`: guards read tables and the macro output directly) | 995 | 110,763 µm² |
+| v2 (entry-cycle slot and location registers, clock history, actions, violations) | 1,925 | 178,064 µm² |
+
+v2 also adds the 16-entry action table (40,708 µm² by `probe_tables.py`), so the split itself (531 flip-flops: 4 × 102
+slot, 27 location, 96 clock history, plus the violation logic) costs about **26.6k µm²** per engine [Estimate from the
+two measurements]. One engine: about 0.236 + 0.027 ≈ **0.26 mm²** [Estimate].
