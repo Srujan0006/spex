@@ -1,0 +1,58 @@
+# SPEX RTL timing spike (owner task 2026-10-22): harden experiments/rtl_spike at 8x4 with a 20.8 ns clock and report
+# post-route timing per corner. The experiment's info.yaml, src/ and LibreLane plugin replace the root ones in the
+# runner only.
+name: rtl_spike
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "experiments/rtl_spike/src/**"
+      - "experiments/rtl_spike/info.yaml"
+      - ".github/workflows/rtl_spike.yaml"
+
+jobs:
+  gds:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Use the spike as the project
+        run: |
+          rm -rf src
+          cp -r experiments/rtl_spike/src src
+          cp experiments/rtl_spike/info.yaml info.yaml
+          cp experiments/rtl_spike/librelane_plugin_spex_pdn.py experiments/rtl_spike/odb_stripes.py .
+
+      - name: Build GDS
+        uses: TinyTapeout/tt-gds-action@3412659307918422f3f0727917cf9b499aaca588  # ihp-cmos5l, pinned 2026-10-21
+        timeout-minutes: 320          # fail the step, not the job, so the reports below still run
+        with:
+          pdk: ihp-sg13cmos5l
+          librelane-version: 3.1.0.dev3   # the action's default at the pinned commit
+
+      - name: Print the post-route STA summary and the worst slow-corner setup paths
+        if: always()
+        run: |
+          cat runs/wokwi/*stapostpnr*/summary.rpt 2>/dev/null || echo "no post-route STA (flow stopped earlier)"
+          f=$(ls runs/wokwi/*stapostpnr*/nom_slow*/max.rpt 2>/dev/null | head -1)
+          [ -n "$f" ] && head -200 "$f" || true
+
+      - name: Upload the LibreLane run directory (DRC reports, STA reports, logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl_spike-runs
+          path: runs/
+          retention-days: 14
+          if-no-files-found: warn
+
+  precheck:
+    needs: gds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run Tiny Tapeout Precheck
+        uses: TinyTapeout/tt-gds-action/precheck@3412659307918422f3f0727917cf9b499aaca588  # ihp-cmos5l, pinned 2026-10-21
