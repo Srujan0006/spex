@@ -10,10 +10,15 @@ on:
       - "experiments/rtl_spike/info.yaml"
       - ".github/workflows/rtl_spike.yaml"
 
+
+concurrency:                       # a newer run of the same workflow cancels a stale one
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gds:
     runs-on: ubuntu-24.04
-    timeout-minutes: 355
+    timeout-minutes: 150
     steps:
       - name: checkout repo
         uses: actions/checkout@v6
@@ -28,10 +33,9 @@ jobs:
           cp experiments/rtl_spike/librelane_plugin_spex_pdn.py experiments/rtl_spike/odb_stripes.py .
 
       - name: Build GDS
-        uses: TinyTapeout/tt-gds-action@3412659307918422f3f0727917cf9b499aaca588  # ihp-cmos5l, pinned 2026-10-21
-        timeout-minutes: 320          # fail the step, not the job, so the reports below still run
+        uses: ./.github/actions/harden   # tt-gds-action@3412659 steps without the PNG render
+        timeout-minutes: 120          # fail fast; fail the step, not the job, so the reports below still run
         with:
-          pdk: ihp-sg13cmos5l
           librelane-version: 3.1.0.dev3   # the action's default at the pinned commit
 
       - name: Print the post-route STA summary and the worst slow-corner setup paths

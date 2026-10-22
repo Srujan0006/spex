@@ -183,6 +183,7 @@
     "Metal4 3.36 3.78 420.00 119.96"
   ],
   "DRT_ANTENNA_REPAIR_ITERS": 1,
+  "DRT_OPT_ITERS": 15,
   "HOLD_VIOLATION_CORNERS": [
     ""
   ]

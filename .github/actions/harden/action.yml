@@ -1,0 +1,83 @@
+# Harden an experiment without the PNG render (2026-10-22: the render took 13 min 54 s of fp5's 27 min job).
+# The steps of TinyTapeout/tt-gds-action@3412659 (Apache-2.0, pinned 2026-10-21) for ihp-sg13cmos5l, minus:
+#   - "Render PNG from GDS" and its upload, and the apt packages only the render and VHDL need;
+#   - the GDS_logs upload (the workflows upload runs/ themselves).
+# The tt_submission artifact is kept, so the stock precheck action still runs after it.
+# Used by the floorplan and spike workflows only; .github/workflows/gds.yaml keeps the stock action.
+name: 'SPEX experiment harden (no render)'
+description: 'tt-gds-action steps for ihp-sg13cmos5l without the PNG render'
+
+inputs:
+  librelane-version:
+    description: 'LibreLane version to install'
+    default: '3.1.0.dev3'
+    required: false
+  tools-ref:
+    description: 'tt-support-tools branch/tag/commit'
+    default: 'ihp-sg13cmos5l'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up environment variables
+      shell: bash
+      run: |
+        cat << __EOF >> $GITHUB_ENV
+        PDK=ihp-sg13cmos5l
+        PDK_ROOT=/home/runner/pdk
+        TT_ARGS=--ihp
+        __EOF
+
+    - name: Checkout tt-support-tools repo
+      uses: actions/checkout@v6
+      with:
+        repository: TinyTapeout/tt-support-tools
+        ref: ${{ inputs.tools-ref }}
+        path: tt
+
+    - name: Setup python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install tt-support-tools dependencies
+      shell: bash
+      run: pip install -r tt/requirements.txt
+
+    - name: Fetch verilog and build config
+      shell: bash
+      run: ./tt/tt_tool.py --create-user-config $TT_ARGS
+
+    - name: Install ihp-sg13cmos5l PDK
+      shell: bash
+      run: ${{ github.action_path }}/install_sg13cmos5l.sh
+
+    - name: Install LibreLane
+      shell: bash
+      run: pip install librelane==${{ inputs.librelane-version }}
+
+    - name: Make GDS with LibreLane
+      shell: bash
+      run: ./tt/tt_tool.py --harden $TT_ARGS
+
+    - name: Routing summary
+      if: always()
+      shell: bash
+      run: ./tt/tt_tool.py --print-stats $TT_ARGS >> $GITHUB_STEP_SUMMARY || true
+
+    - name: Prepare tt_submission artifact
+      shell: bash
+      run: ./tt/tt_tool.py --create-tt-submission $TT_ARGS
+
+    - name: Publish tt_submission artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tt_submission
+        path: |
+          src/*
+          docs/*
+          tt_submission/*
+          info.yaml
+          LICENSE

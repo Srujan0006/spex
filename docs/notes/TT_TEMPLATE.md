@@ -23,6 +23,7 @@
 | `info.yaml` | title, author, description, clock_hz (48 MHz) filled in | the gds and docs workflows reject empty fields (CI run 39410242621) |
 | `docs/info.md` | placeholder sections replaced with a short description | the docs workflow rejects the template text |
 | `.github/workflows/gds.yaml` | `push` limited to `src/**`, `info.yaml` and the workflow itself | the 8x4 harden of the placeholder design costs hours of CI on every docs or model commit |
+| `.github/workflows/gds.yaml` | push trigger removed, `workflow_dispatch` only (2026-10-22) | until the SPEX RTL exists, a push only re-hardens the template example (50 min per `info.yaml` edit); restore the push trigger with the RTL |
 | `info.yaml` | tile-size comment updated to cmos5l sizes (1x1 = 202 × 155 µm, 8x4 = 1724.16 × 710.64 µm) | the template comment gives the old sg13g2 tile size (2026-10-21) |
 | `info.yaml` | `pinout` filled in: host SPI on `ui[0..2]` / `uo[0]`, IRQ on `uo[1]`, SPEX pins 0..7 on `uio[0..7]` (S49, proposed) | the docs workflow rejects an empty pinout; datasheet only, no RTL yet (2026-10-21) |
 

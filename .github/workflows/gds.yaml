@@ -1,11 +1,8 @@
 name: gds
 
 on:
-  push:
-    paths:
-      - "src/**"
-      - "info.yaml"
-      - ".github/workflows/gds.yaml"
+  # manual only until the SPEX RTL exists (2026-10-22): src/ holds the template's example design, and each info.yaml
+  # edit cost a 50-minute 8x4 harden of it. Restore the push trigger with the RTL (docs/notes/TT_TEMPLATE.md).
   workflow_dispatch:
 
 jobs:

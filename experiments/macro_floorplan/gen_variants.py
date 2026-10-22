@@ -188,6 +188,9 @@ def main():
         # (threshold 90 um) put 28,333 diodes into fp_one_engine (CI 39716318069) and 36,193 into fp_asym, whose
         # detailed placement then failed (CI 39749337761, DPL-0036 on 2,123 cells)
         cfg["DRT_ANTENNA_REPAIR_ITERS"] = 1
+        # fail fast (2026-10-22): converging routes here reached 0 within a few passes (fp5: pass 4); routes that had
+        # not converged by pass ~10 never did, so stop at 15 instead of LibreLane's 64
+        cfg["DRT_OPT_ITERS"] = 15
         # filler timing is not representative (owner, 2026-10-22): report hold, do not stop the flow on it, so that
         # routing, LVS and precheck decide S46 (setup is already a warning only)
         cfg["HOLD_VIOLATION_CORNERS"] = [""]

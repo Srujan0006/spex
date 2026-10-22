@@ -253,3 +253,17 @@ diodes, and detailed placement then failed on 2,123 cells (DPL-0036). The same s
 fp_one_engine (CI 39716318069). BUGS 28: the variants go back to fp5's antenna recipe exactly (no heuristic diodes,
 one antenna re-route), keeping only "hold does not stop the flow"; fp_one_engine run 39749360673 (same bad setting) was
 cancelled and both variants rerun.
+
+## CI speedups (2026-10-22)
+
+1. **Fail fast:** detailed routing capped at 15 passes (`DRT_OPT_ITERS`; LibreLane's default is 64), the GDS step at
+   120 min (job 150). Converging routes reached 0 within a few passes (fp5: pass 4); none that was stuck at pass 10
+   converged later.
+2. **No PNG render:** experiment workflows use `.github/actions/harden`, the steps of tt-gds-action@3412659 without
+   the render (13 min 54 s of fp5's 27 min job), its apt packages, or the GDS_logs upload. `tt_submission` is kept, so
+   the stock precheck still runs. `gds.yaml` keeps the stock action.
+3. **No wasted runs:** every experiment workflow has a `concurrency` group that cancels a stale run of itself;
+   `gds.yaml` is manual-only until the SPEX RTL exists.
+
+Setup is not a bottleneck and is not cached further: apt and pip are already cached by the action, the PDK fetch takes
+17 s and the LibreLane image pull 79 s (fp5 run 39575347791).
