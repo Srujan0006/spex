@@ -66,3 +66,15 @@ violations. Cause found in the macro LEF [Measured, IHP-Open-PDK 2bbec755]: the 
 whole long edge (x 10.6–773.6 µm) and its address/control pins sit at the middle (x 387–399 µm); run 3's back-to-back
 pair put u_m0's pins in the channel below the pair and u_m1's in the channel above, so the loop logic straddled the
 macros. Spike v2 puts the two 64x64 macros face to face around one logic channel.
+
+**v2 run 1 (CI 39812959173, 2026-10-22): not routed, not representative.** Utilisation 0.268. Detailed routing reached
+123 after 15 passes, 247 after the antenna re-route (Metal4 226 shorts, 19 spacing; Metal2 2); LibreLane then
+crashed parsing the LVS report (`JSONDecodeError`, as with shorted nets before), so no final database and no per-path
+timing. Where (fp_report on GitHub, `drc_where.py`): **241 of 247 over the u_m0 / u_m1 interiors**, through the routing
+obstructions (309 obstruction sources), on clock-tree leaf nets, `edge_q` bits and `l_inv_clk`: cells placed below
+u_m0 or above u_m1 had to reach the channel across a macro. 45–48 max-cap violations, almost all on the macros' own
+`A_DOUT` pins (limit 0.064 pF, 0.15–0.27 pF measured). Indicative only: slow setup −7.0 ns, typical +3.45 ns,
+fast +9.43 ns, hold met.
+
+Iteration 2: `FP_OBSTRUCTIONS` (no placement sites) beyond the macros (x 464.2–1248.68, y < 226.80 and y > 555.76),
+`CTS_OBSTRUCTION_AWARE`, and `DESIGN_REPAIR_MAX_WIRE_LENGTH` / `GRT_DESIGN_REPAIR_MAX_WIRE_LENGTH` = 200 µm.
