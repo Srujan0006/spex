@@ -217,3 +217,26 @@ Hold is now met at every corner, but the setup failures moved from pad inputs to
 synchroniser per input bus now drives every tile's table logic across the die. Readings [Estimate]: (1) the filler's
 `din` fan-out (a read address of every tile's table and a term of every macro input) is harsher than the engine's pin
 bus; (2) antenna repair by re-routing costs an hour per round on this layout and does not converge here.
+
+## fp_one_engine with a din register per tile, heuristic diodes, one re-route (CI 39716318069, 2026-10-22)
+
+Failed after 5 h 12 min (03:20–08:33): **84 routing DRC errors** at the end. Heuristic diode insertion placed 5 diodes
+before routing (0 antenna violations left after global routing). Detailed routing 03:44–06:30 ended at 42 (48,267 after
+the first pass); the single antenna re-route (3 diodes) took 1 h 54 min and ended at 84. Post-route STA on that
+layout [Measured, job log]:
+
+| Corner | Setup WS | Setup violations (reg-to-reg) | Hold WS | Hold violations |
+|---|---|---|---|---|
+| slow | **−1.082 ns** (≈ −0.28 ns at 20.8 ns) | 48 (48) | +0.574 ns | 0 |
+| typical | +6.731 ns | 0 | +0.267 ns | 0 |
+| fast | +11.501 ns | 0 | +0.078 ns | 0 |
+
+The tile-local register cut the slow-corner deficit from −3.49 to −1.08 ns and kept hold met. Routing, however, has
+not reached 0 again since the synchronisers were added (0 → 22 → 42 at the end of the first route), and every antenna
+re-route on this layout has made it worse. Summary of the one_engine runs on the fp5 placement:
+
+| CI run | Change | Route end (first / final) | Slow setup WS | Fast hold WS |
+|---|---|---|---|---|
+| 39612722226 | VDDARRAY fix | 0 / 0 | −1.593 ns | −0.060 ns |
+| 39640707514 | + top synchronisers, 3 antenna re-routes | 22 / 70 | −3.492 ns | +0.094 ns |
+| 39716318069 | + din register per tile, heuristic diodes, 1 re-route | 42 / 84 | −1.082 ns | +0.078 ns |
