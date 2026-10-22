@@ -38,3 +38,28 @@ this environment, although it read the Verilog that way; the measurement used th
 made absolute.
 
 `ta_engine_lite.v` (added 2026-10-20) still carries the v4 header comment; the module is the Check-only variant described in the table. Measured the same way (absolute liberty path).
+
+## Area per table and per read port (2026-10-22, owner request)
+
+`table_ports.v` is one table of N entries × W bits in flops with P independent read ports; `probe_tables.py`
+synthesises it for every engine table at 1..P ports (yowasp-yosys 0.70, typical liberty, same script as above)
+[Measured: `YOSYS=yowasp-yosys python3 probe_tables.py`]:
+
+| table | entries × bits | bits | 1 read port (µm²) | each extra port (µm²) | engine ports | at engine ports (µm²) | ports |
+|---|---|---|---|---|---|---|---|
+| windows | 16 × 34 | 544 | 43,253 | 6,481 | 6 | 75,657 | 4 guard slots + location invariant + coverage margin; {clk 2, lo 16, hi 16} |
+| nominal | 8 × 16 | 128 | 10,213 | 1,510 | 4 | 14,742 | 4 slots at entry (POLICY nominal, S44) |
+| patterns | 8 × 17 | 136 | 10,845 | 1,604 | 5 | 17,260 | 4 guard slots + fired edge's trigger mask (7 used) |
+| constants | 8 × 16 | 128 | 10,213 | 1,510 | 4 | 14,742 | 4 data-guard slots |
+| actions | 16 × 32 | 512 | 40,708 | — | 1 | 40,708 | fired edge |
+| location words (flops) | 64 × 14 | 896 | 73,210 | — | 1 | 73,210 | current location; in a 1P_64x16 macro since S44 (15,240 µm² of macro) |
+
+The tables an engine keeps in flops after S44 sum to **163,109 µm²** at their port counts. Storage dominates: about
+76–80 µm² per bit with one port; each extra read port adds about 12 µm² per bit (a W-bit N:1 mux). The windows table
+alone is 75,657 µm² (46 % of the tables), 30,000 of it from its 5 extra ports.
+
+**Location-record variant: not probed.** The condition was that every spec uses at most 2 distinct windows and 2
+constants per location (`python3 -B scripts/location_fit.py`) [Measured]: UART and SPI fit (≤ 2 windows, ≤ 2
+constants), but I2C does not: location `AKA_LOW` uses 3 windows in Check and in both controller timings, and `CB_HIGH`
+uses 3 constants in the controller's Drive role (the STOP, repeated-START and next-byte tokens). A 2 + 2 record
+would need I2C rewritten (split those locations) or 3 + 3 records.
