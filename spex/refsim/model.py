@@ -86,9 +86,19 @@ class Fired:
 
 
 @dataclass(frozen=True)
+class DebugSelect:
+    """R12.8 (S49, proposed): which engine's location and which (location, slot) the debug pins show."""
+    engine: int = 0
+    loc: int = 0
+    slot: int = 0
+    hi: int = 0               # uo[7:4] shows loc[5:4] (zero-extended) instead of loc[3:0]
+
+
+@dataclass(frozen=True)
 class Outputs:
     out: int
     oe: int
+    dbg: int = 0              # R12.8: uo[7:2] = {loc nibble[3:0], edge pulse, violation pulse}
 
 
 @dataclass
@@ -142,6 +152,9 @@ class ChipState:
     cov_engine: int = 0
     cov_q: int = 0
     cov_busy: int = 0         # single-port coverage macro: cycles left of the current read-modify-write (S47)
+    dbg_sel: Optional[DebugSelect] = None     # R12.8: None = debug pins off (reset)
+    viol_pulse: int = 0       # R12.8: a violation was raised in the previous cycle
+    edge_pulse: int = 0       # R12.8: the selected edge fired in the previous cycle
 
     def copy(self) -> "ChipState":
         n = copy.copy(self)
@@ -212,7 +225,16 @@ class Spex:
             eout = rotl8(e.out, b)
             out = (out & ~eoe) | (eout & eoe)
             oe |= eoe
-        return Outputs(out & 0xFF, oe & 0xFF)
+        return Outputs(out & 0xFF, oe & 0xFF, self._debug_pins())
+
+    def _debug_pins(self) -> int:
+        """R12.8 (S49, proposed): uo[2] violation pulse, uo[3] selected-edge pulse, uo[7:4] location nibble."""
+        sel = self.s.dbg_sel
+        if sel is None:
+            return 0
+        loc = self.s.engines[sel.engine].loc
+        nib = (loc >> 4) & 0x3 if sel.hi else loc & 0xF
+        return (nib << 2) | (self.s.edge_pulse << 1) | self.s.viol_pulse
 
     def run(self, n: int, pads_in: int) -> None:
         for _ in range(n):
@@ -236,6 +258,11 @@ class Spex:
             nxt.cov_busy = 1                          # the write cycle that follows this read
         else:
             nxt.cov_busy = max(cur.cov_busy - 1, 0)
+        # debug pulses (R12.8): registered, so they show in the cycle after the event
+        nxt.viol_pulse = int(bool(res.violations))
+        sel = cur.dbg_sel
+        nxt.edge_pulse = int(sel is not None and any(
+            f.engine == sel.engine and f.loc == sel.loc and f.slot == sel.slot for f in res.fired))
         self._seed = None
         if host is not None:
             self._host(cur, nxt, host, res)
@@ -280,6 +307,8 @@ class Spex:
             self._seed = (h.arg & M32) or 1           # R8.2; replaces this cycle's advance
         elif h.kind == "cov_select":
             nxt.cov_engine = h.arg
+        elif h.kind == "debug_select":                # R12.8: arg is a DebugSelect, or None for off
+            nxt.dbg_sel = h.arg
         elif h.kind == "clear":
             ne.flags, ne.viol_count = 0, 0
             nxt.flags = 0

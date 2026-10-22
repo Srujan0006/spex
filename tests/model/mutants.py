@@ -74,6 +74,10 @@ _MODEL_MUTANTS = [
      "test_rules::test_R11_3a_nominal_table"),
     ("coverage port busy 3 cycles", "R9.2/S47", "nxt.cov_busy = 1                          # the write cycle",
      "nxt.cov_busy = 2                          # the write cycle", "test_rules::test_R9_single_port_queue"),
+    ("violation pulse sticks", "R12.8/S49", "nxt.viol_pulse = int(bool(res.violations))",
+     "nxt.viol_pulse = int(bool(res.violations)) | cur.viol_pulse", "test_rules::test_R12_8_debug_pins"),
+    ("edge pulse ignores the slot", "R12.8/S49", "f.loc == sel.loc and f.slot == sel.slot", "f.loc == sel.loc",
+     "test_rules::test_R12_8_debug_pins"),
     ("violation does not count", "R6.3", "ne.viol_count = min(ne.viol_count + 1, 0xFFFF)", "pass",
      "test_rules::test_R6_5"),
 ]

@@ -333,6 +333,11 @@ is TIMEOUT. (Test: `tests/model/test_rules.py::test_long_wait_nec_leader`.)
 - **R12.5 DEFERRED (2026-11-14).** Host SPI frame format. It will be written as a SPEX spec (dogfooding, proposal §6.4). Until then the model's host operations are API calls, one per `step`.
 - **R12.6 DECIDED (S32). Pins and engines.** Engine k sees and drives the chip pins through a rotation by its `pin base` b: engine pin i ↔ chip pin `(i + b) mod 8`. Chip output: `oe[p] = oe0[p] OR oe1[p]`; `out[p] = out1[p] if oe1[p] else out0[p]` (engine 1 wins a conflict, as DTC SM1).
 - **R12.7 DERIVED (to be removed when the RTL leaves the synchroniser unreset, S48).** In the model the synchroniser flops start at 0, so a pin that is high after reset shows a change on the pin bus in cycle 2. An engine started (R12.4) in cycle 0 or 1 judges that change and, if the pin is watched, raises UNEXPECTED. Start engines in cycle 3 or later; the host library enforces this. (Found by the toy-UART duality test, 2026-10-20.)
+- **R12.8 PROPOSED (S49). Debug pins.** A chip register `dbg_sel` (reset: off) holds `{engine e, location L, slot k, hi}`; the host sets it with `DEBUG_SELECT` (or turns the pins off). With `dbg_sel` on, in cycle n:
+  - `uo[2]` = 1 iff some engine raised a violation (R6.3, any kind) in cycle n − 1: one cycle per violation cycle, for scope triggering; violations in consecutive cycles give a pulse that long;
+  - `uo[3]` = 1 iff engine e fired slot k of location L in cycle n − 1;
+  - `uo[7:4]` = `loc[3:0]` of engine e in `S_n` (with `hi`: `{2'b00, loc[5:4]}`).
+  With `dbg_sel` off, `uo[7:2]` = 0. The pulses are registered, so `outputs()` stays a function of `S_n` (R0.3). Model: `Outputs.dbg` = `uo[7:2]`, host op `debug_select`; test `test_rules::test_R12_8_debug_pins`.
 
 ## 13. Worked examples
 

@@ -9,7 +9,7 @@ from imgb import START, ImageBuilder, run, start
 from spex.refsim import (CK_GE, CK_POLICY, CK_WIN, DG_BITCNT_EQ, DG_BITCNT_LT, DG_EVENT, DG_SR_MATCH,
                          DG_SR_NOMATCH, DG_TOKEN, DG_TXF_NE, EDGE, HALTED, LEVEL, OD, OP_LOAD, OP_LOAD_PEEK,
                          OP_PUSH, OP_SHIN, OP_SHOUT, POL_EARLIEST, POL_LATEST, POL_NOMINAL, POL_RANDOM,
-                         POL_SWEEP, PP, RUNNING, SPEC_ERROR, STOPPED, XMAX, Action, HostOp, Policy, Spex,
+                         POL_SWEEP, PP, RUNNING, SPEC_ERROR, STOPPED, XMAX, Action, DebugSelect, HostOp, Policy, Spex,
                          UndefinedRead, random_time)
 from spex.refsim.model import F_HOST_ERR, F_RX_OVERFLOW, F_TRACE_LOST, F_TX_UNDERFLOW, Params
 
@@ -270,6 +270,46 @@ def test_R12_6_pin_base_and_engine1_wins():
     m.run(5, 0)
     o = m.outputs()
     assert o.oe == 1 << 3 and o.out == 0                 # both drive chip pin 3; engine 1 (value 0) wins
+
+
+def test_R12_8_debug_pins():
+    """S49 (proposed): uo[2] pulses one cycle after a violation, uo[3] one cycle after the selected edge fires,
+    uo[7:4] show the selected engine's location (low nibble, or loc[5:4] with hi); off until selected.
+    Mutants: 'violation pulse sticks', 'edge pulse ignores the slot' (tests/model/mutants.py)."""
+    b = ImageBuilder()
+    b.loc(0)
+    b.edge(0, 18, pat=NEVER)                                  # slot 0: never fires
+    b.edge(0, 18, pat=(1, 1, LEVEL))                          # slot 1: pin 0 high -> location 18 = 0b01_0010
+    b.loc(18, watch=2)                                        # a change on pin 1 there is UNEXPECTED
+    b.edge(18, 18, pat=NEVER)
+    m = start(b.build())
+    dbg = []
+    sel = {1: HostOp("debug_select", 0, DebugSelect(0, 0, 1))}
+    fired = viol = None
+    for n in range(30):
+        dbg.append(m.outputs().dbg)
+        pads = (1 if n >= 6 else 0) | (2 if n >= 14 else 0)
+        r = m.step(pads, HostOp("start") if n == 0 else sel.get(n))
+        if r.fired:
+            fired = n
+        if r.violations:
+            viol = n
+    assert dbg[0] == 0 and dbg[1] == 0                       # off until debug_select takes effect
+    assert fired is not None and viol is not None and viol > fired + 2
+    assert dbg[fired] & 0b10 == 0 and dbg[fired + 1] & 0b10 and dbg[fired + 2] & 0b10 == 0   # one-cycle edge pulse
+    assert dbg[fired] >> 2 == 0 and dbg[fired + 1] >> 2 == 18 & 0xF                         # location nibble
+    assert dbg[viol] & 1 == 0 and dbg[viol + 1] & 1 and dbg[viol + 2] & 1 == 0               # one-cycle violation pulse
+    m.step(0, HostOp("debug_select", 0, DebugSelect(0, 18, 0, hi=1)))
+    assert m.outputs().dbg >> 2 == 18 >> 4
+    m.step(0, HostOp("debug_select", 0, None))
+    assert m.outputs().dbg == 0
+    # selecting the other slot of the same location shows no edge pulse
+    m2 = start(b.build())
+    seen = 0
+    for n in range(12):
+        seen |= m2.outputs().dbg & 0b10
+        m2.step(1 if n >= 6 else 0, HostOp("start") if n == 0 else (HostOp("debug_select", 0, DebugSelect(0, 0, 0)) if n == 1 else None))
+    assert m2.s.engines[0].loc == 18 and seen == 0
 
 
 # ---------------------------------------------------------------- host (R12)

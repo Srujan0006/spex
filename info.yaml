@@ -35,12 +35,12 @@ pinout:
   # Outputs
   uo[0]: "HOST_MISO (host SPI data out)"
   uo[1]: "IRQ (host attention: violation, FIFO or halt)"
-  uo[2]: ""
-  uo[3]: ""
-  uo[4]: ""
-  uo[5]: ""
-  uo[6]: ""
-  uo[7]: ""
+  uo[2]: "VIOL (1-cycle pulse per violation, debug)"
+  uo[3]: "EDGE (selected-edge pulse, debug)"
+  uo[4]: "LOC0 (selected engine location bit, debug)"
+  uo[5]: "LOC1 (debug)"
+  uo[6]: "LOC2 (debug)"
+  uo[7]: "LOC3 (debug)"
 
   # Bidirectional pins
   uio[0]: "SPEX pin 0 (protocol pin, bidirectional)"
