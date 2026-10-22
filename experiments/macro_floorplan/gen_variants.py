@@ -187,6 +187,9 @@ def main():
         # antenna: diodes placed by heuristic before routing, then at most one re-route (each re-route of
         # fp_one_engine cost about an hour and made routing worse: 22 -> 46 -> 70 violations, CI 39640707514)
         cfg["RUN_HEURISTIC_DIODE_INSERTION"] = True
+        # the step splits DIODE_CELL as cell/pin; the cmos5l PDK gives only the cell name (fp_one_engine CI 39714743319
+        # failed with "not enough values to unpack"); every other LibreLane script takes the part before the slash
+        cfg["DIODE_CELL"] = "sg13cmos5l_antennanp/A"
         cfg["DRT_ANTENNA_REPAIR_ITERS"] = 1
         check_geometry(name, tiles)
         json.dump(cfg, open(os.path.join(src, "config.json"), "w"), indent=2)
