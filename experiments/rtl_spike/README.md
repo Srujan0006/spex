@@ -31,3 +31,21 @@ end reads.
 0.193 and global routing had only 71 overflowing tiles. The config had heuristic diode insertion (copied from the
 variants' setting of that day, BUGS 28): it inserted 7,958 diodes. Timing from this run is not meaningful. Run 2 uses
 fp5's antenna recipe exactly (no heuristic diodes, one antenna re-route).
+
+**Run 3 (CI 39796771222, 2026-10-22, fp5 antenna recipe, 15-pass cap): routed to 591 DRC violations, timing far off.**
+Utilisation 0.193; detailed routing stopped by the 15-pass cap at 591 violations (job 1 h 26 min). Post-route STA at
+20.8 ns, on that unfinished layout [Measured, job log]:
+
+| Corner | Setup WS | Setup violations (reg-to-reg) | Hold WS | Max cap violations |
+|---|---|---|---|---|
+| slow 1.08 V 125 °C | **−24.115 ns** (needs 44.9 ns: 22.3 MHz) | 112 (112) | +0.514 ns | 68 |
+| typical 1.20 V 25 °C | −7.154 ns (needs 28.0 ns: 35.8 MHz) | 112 (112) | +0.238 ns | 68 |
+| fast 1.32 V −40 °C | +2.830 ns | 0 | +0.056 ns | 69 |
+
+Worst slow-corner path (arrival 45.69 ns): clock to the macro 1.29 ns; `u_m0` A_CLK → A_DOUT[51] **5.64 ns**; then
+guard logic, priority (a 24-fanout select net) and the selection mux into a register (`_12937_/D`). Five nets in it
+are long wires of 0.17–0.44 pF driven by 1x cells (slews 2.6–11.4 ns) and cost about **21.6 ns** together
+(nor4_1 8.34 ns, o21ai_1 4.56 ns, a22oi_1 3.84 ns, a221oi_1 3.70 ns, or2_1 1.20 ns); the remaining ~17 ns is logic.
+Readings [Estimate]: the unrepaired long wires (68 max-cap violations) and the unfinished route make this an upper
+bound, not the loop's real delay; the macro's 5.6 ns clock-to-output plus ~17 ns of logic alone is already above
+20.8 ns at the slow corner, so the loop as written does not close at 48 MHz on the slow corner even with good wires.
