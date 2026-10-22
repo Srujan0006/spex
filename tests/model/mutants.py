@@ -83,6 +83,13 @@ _MODEL_MUTANTS = [
 ]
 
 _COMPILER_MUTANTS = [
+    ("GE window index loses bit 3", "R11.1/S42/L1", 'w = idx(windows, (ce.clock, ce.lo, ce.lo, None), T.NUM_WINDOWS, "windows")',
+     'w = idx(windows, (ce.clock, ce.lo, ce.lo, None), T.NUM_WINDOWS, "windows") & 7',
+     "test_decoder::test_decoded_image_equals_source"),
+    ("constants lose their high byte", "R11.5/L1", 'k = idx(consts, ce.dval, 8, "constants")',
+     'k = idx(consts, ce.dval & 0xFF, 8, "constants")', "test_decoder::test_decoded_image_equals_source"),
+    ("nominal time in the next slot", "R11.3a/L1", "img.noms[i] = nom                       # POLICY",
+     "img.noms[min(i + 1, 7)] = nom          # POLICY", "test_decoder::test_decoded_image_equals_source"),
     ("observation delay 2, not 3", "R7.7", "D_OBS = 3 ", "D_OBS = 2 ", "test_compiler::test_R7_7"),
     ("observed SHOUT not mapped to SHIN", "R7.4", '"SHOUT": "SHIN", ', "", "test_compiler::test_toy_uart_drive_passes_check"),
     ("no silent completion", "R7.4", "if e.window is not None and not e.reset:", "if False:",
