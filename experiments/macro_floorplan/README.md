@@ -240,3 +240,8 @@ re-route on this layout has made it worse. Summary of the one_engine runs on the
 | 39612722226 | VDDARRAY fix | 0 / 0 | −1.593 ns | −0.060 ns |
 | 39640707514 | + top synchronisers, 3 antenna re-routes | 22 / 70 | −3.492 ns | +0.094 ns |
 | 39716318069 | + din register per tile, heuristic diodes, 1 re-route | 42 / 84 | −1.082 ns | +0.078 ns |
+
+**Owner decision (2026-10-22): no more timing iterations on dummy fillers.** The timing numbers of the
+`fp_one_engine` runs above are labelled **filler timing not representative**: the filler's paths (a shared input
+fanned out to every table, LFSR-addressed mux trees) are not the engine's. Routing, LVS and precheck remain the
+criteria for the variants; the engine's own timing is measured on RTL (the critical-loop spike).

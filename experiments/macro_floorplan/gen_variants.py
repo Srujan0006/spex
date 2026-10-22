@@ -184,13 +184,16 @@ def main():
         cfg["PDN_MACRO_CONNECTIONS"] = [c for t in tiles for c in _conn(t)]
         cfg["PL_TARGET_DENSITY_PCT"] = DENSITY[name]
         cfg["ROUTING_OBSTRUCTIONS"] = obstructions(tiles)
-        # antenna: diodes placed by heuristic before routing, then at most one re-route (each re-route of
-        # fp_one_engine cost about an hour and made routing worse: 22 -> 46 -> 70 violations, CI 39640707514)
+        # antenna: diodes placed by heuristic before routing, no re-route (every re-route of fp_one_engine cost about
+        # an hour and made routing worse: 22 -> 46 -> 70, CI 39640707514; 42 -> 84, CI 39716318069)
         cfg["RUN_HEURISTIC_DIODE_INSERTION"] = True
         # the step splits DIODE_CELL as cell/pin; the cmos5l PDK gives only the cell name (fp_one_engine CI 39714743319
         # failed with "not enough values to unpack"); every other LibreLane script takes the part before the slash
         cfg["DIODE_CELL"] = "sg13cmos5l_antennanp/A"
-        cfg["DRT_ANTENNA_REPAIR_ITERS"] = 1
+        cfg["DRT_ANTENNA_REPAIR_ITERS"] = 0
+        # filler timing is not representative (owner, 2026-10-22): report hold, do not stop the flow on it, so that
+        # routing, LVS and precheck decide S46 (setup is already a warning only)
+        cfg["HOLD_VIOLATION_CORNERS"] = [""]
         check_geometry(name, tiles)
         json.dump(cfg, open(os.path.join(src, "config.json"), "w"), indent=2)
         info = open(os.path.join(HERE, "fp5", "info.yaml")).read()

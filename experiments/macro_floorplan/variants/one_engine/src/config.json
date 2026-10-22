@@ -184,5 +184,8 @@
   ],
   "RUN_HEURISTIC_DIODE_INSERTION": true,
   "DIODE_CELL": "sg13cmos5l_antennanp/A",
-  "DRT_ANTENNA_REPAIR_ITERS": 1
+  "DRT_ANTENNA_REPAIR_ITERS": 0,
+  "HOLD_VIOLATION_CORNERS": [
+    ""
+  ]
 }
