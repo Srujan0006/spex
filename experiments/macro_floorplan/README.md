@@ -267,3 +267,12 @@ cancelled and both variants rerun.
 
 Setup is not a bottleneck and is not cached further: apt and pip are already cached by the action, the PDK fetch takes
 17 s and the LibreLane image pull 79 s (fp5 run 39575347791).
+
+## fp_one_engine passes (CI 39773589405, 2026-10-22): routes, LVS clean, precheck passed
+
+fp5's placement rules and antenna recipe (no heuristic diodes, one re-route), utilisation about 0.45. GDS job 2 h 17 min
+(11:50–14:07; it predates the no-render action), detailed routing 12:06–13:39 ending at **0 violations**, LVS passed,
+**Tiny Tapeout precheck passed** (14:07–16:56). Antenna: 6 nets still violate after the single re-route (reported, not
+an error in this flow, and not a precheck item). Post-route STA at 20 ns, **filler timing not representative**
+(owner, 2026-10-22): slow setup −2.48 ns (255 reg-to-reg endpoints), typical +6.20 ns, fast +11.47 ns; hold fast
+−0.19 ns (6 paths), typical +0.04 ns, slow +0.45 ns [Measured, job log].
