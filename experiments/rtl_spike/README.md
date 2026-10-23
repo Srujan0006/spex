@@ -146,3 +146,36 @@ Macro data [Measured, IHP-Open-PDK 2bbec755 LEF and slow-corner liberty]: 1P_64x
 
 (b) and (c) also make a one-wall floorplan natural: four or five 416.64 µm macros fit in one row (x = 3.36, 430.48,
 857.60, 1284.72 on the 11.24 µm grid, the last ending at 1701.36), with every `A_DOUT` pin facing the logic.
+
+## Results of layouts A and B (CI 39934290172 / 39934294249, re-timed by spike_sta 39939400439 / 39939403874, 2026-10-23)
+
+**Both route to 0 detailed-routing violations** within the 15-pass cap (A: 10:21, B: 10:25 after a 10:08 start of
+routing), with **0 max-capacitance and 0 max-slew violations** at all corners; the only check violators are
+clock-tree leaf buffers with 16–18 sinks against a max-fanout limit of 8. Utilisation 0.268. The flow then stopped
+at `CheckDesignAntennaProperties` (it needs the Magic LEF this spike config turns off), after post-route STA. LVS
+was off, so OpenROAD's 34,656 power-grid warnings are not cleared by LVS here (they appeared, and LVS passed, in fp5
+and fp_one_engine). Post-route setup slack at 20.8 ns [Measured, `sta_paths.tcl` on the routed database with
+extracted parasitics]:
+
+| Path | A slow | A typ | A fast | B slow | B typ | B fast |
+|---|---|---|---|---|---|---|
+| (A) entry: macro clock-to-output → table reads → slot registers | +9.387 | +13.752 | +16.244 | +8.537 | +13.228 | +15.909 |
+| (B) evaluation: slot registers → guards → priority → next address → macro inputs | +5.751 | +11.201 | +14.400 | +4.328 | +10.366 | +13.880 |
+| action: → pin-write registers (uio_out / uio_oe) | +1.212 | +8.402 | +12.681 | (not found) | | |
+| **overall worst register-to-register** | **+0.732** | **+8.100** | +12.403 | **−1.124** | **+7.056** | +11.739 |
+| hold worst (from the flow's STA) | met | met | met | met | met | met |
+
+Fmax (1 / (20.8 ns − worst slack)): **layout A 49.8 MHz slow, 78.7 MHz typical; layout B 45.6 MHz slow, 72.8 MHz
+typical.** Path (B) alone would allow 66.4 MHz (A) / 59.6 MHz (B) at the slow corner; path (A) 87.6 / 81.2 MHz.
+
+The overall worst path is the **firing update**, not (A) or (B): a slot register → pin/age compare → guard → priority
+(fan-out buffers) → a long wire run of about 8 buffers (≈ 2.8 ns) → action-table selection and op decode → a mux into
+a datapath register, with two hold-fix delay cells on it (≈ 1.27 ns). Layout B is slower on it (one wall puts the
+logic further from the action/datapath registers).
+
+Against the owner's targets: typical ≥ 48 MHz with ≥ 2 ns margin — **met by both** (A +8.1 ns, B +7.1 ns); slow-corner
+goal ≥ 40 MHz — **met by both** (A 49.8 MHz, so A also closes 48 MHz at the slow corner by 0.73 ns). Caveat: the spike
+has no events, FIFOs, coverage, trace or host port; the real engine adds logic, much of it on the same firing update
+(event emit, coverage strobe, token pop), so A's 0.73 ns slow-corner margin is thin. Prefetching the four slots'
+actions in the entry cycle (4 × 32 = 128 more flip-flops, ≈ +7k µm² [Estimate from the per-table probe]) would take
+the action-table read off that path.
