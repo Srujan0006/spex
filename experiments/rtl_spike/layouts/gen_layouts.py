@@ -11,7 +11,8 @@ B, one wall: u_m0 and u_m1 FS side by side on the bottom edge (pins up); logic a
    macros that share an x range; a 40 um corridor above it stays free for the I/O pins.
 Both: no band obstructions; macro ROUTING_OBSTRUCTIONS, CTS_OBSTRUCTION_AWARE and 200 um repair wire length kept;
    GRT_ALLOW_CONGESTION off (global routing fails fast instead of planning through macros); 15-pass detailed-route
-   cap; LVS, Magic stream-out / LEF and the IR-drop report skipped (timing runs, not sign-off).
+   cap (30 passes since the action prefetch); LVS, Magic stream-out / LEF and the IR-drop report skipped (timing runs,
+   not sign-off).
 """
 import collections
 import json
@@ -65,7 +66,10 @@ def main():
         d["DESIGN_REPAIR_MAX_WIRE_LENGTH"] = 200
         d["GRT_DESIGN_REPAIR_MAX_WIRE_LENGTH"] = 200
         d["GRT_ALLOW_CONGESTION"] = False
-        d["DRT_OPT_ITERS"] = 15
+        # with action prefetch (2026-10-23) layout A ended at 26 Metal2 violations at the 15-pass cap, 22 of them in one
+        # 50 um hot spot in the open core (window-table scan nets): 30 passes and density 40 % instead of 15 and 45 %
+        d["DRT_OPT_ITERS"] = 30
+        d["PL_TARGET_DENSITY_PCT"] = 40
         for k in ("RUN_LVS", "RUN_MAGIC_STREAMOUT", "RUN_MAGIC_WRITE_LEF", "RUN_IRDROP_REPORT"):
             d[k] = False
         os.makedirs(os.path.join(HERE, name), exist_ok=True)

@@ -186,3 +186,11 @@ The entry cycle now also loads each slot's 32-bit action (`s_actw[i] <= act[e[10
 one of four registered actions instead of reading the 16-entry table after the priority. Cost: 4 × 32 = 128 more
 flip-flops and the action table grows from 1 to 4 read ports (it moves onto path (A), which had 8–9 ns of slow-corner
 slack). Testbench passes; planted bug "prefetch reads action 0" makes it fail.
+
+**Prefetch run (CI 39940239878, layout A): timing much better, 26 violations left.** Worst register-to-register slack
+at 20.8 ns: **+4.148 ns slow (60.1 MHz), +10.329 ns typical (95.5 MHz)**, +13.893 ns fast (was +0.732 / +8.100 /
++12.403 without prefetch); path (A) +8.728 / +13.329 / +15.954, path (B) +4.785 / +10.668 / +14.072, action
++4.249 / +10.397 / +13.903; 0 max-cap [Measured]. Routing ended at 26 Metal2 violations (16 spacing, 10 shorts) at
+the 15-pass cap, all in the open core, 22 in one 50 µm hot spot around (1000, 350) on window-table scan nets, so this
+run is not yet evidence. Area of the spike core with prefetch: 193,892 µm², 2,005 flip-flops (v2: 178,064 µm²,
+1,925): **+15.8k µm²** [Measured, yowasp-yosys 0.70]. Next run: 30 detailed-route passes and placement density 40 %.
