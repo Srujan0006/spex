@@ -10,10 +10,23 @@ set c $::env(CORNER)
 read_liberty $pdk/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_$std($c).lib
 read_liberty $pdk/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x64_c2_bm_bist_$sram($c).lib
 read_liberty $pdk/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x16_c2_$sram($c).lib
-read_db [lindex [glob runs/wokwi/final/odb/*.odb] 0]
+# the newest database at or after detailed routing (final/ if the flow finished; otherwise the last step's), and the
+# newest extracted parasitics: timing is reported even when routing left violations (owner, 2026-10-23)
+proc step_no {d} { if {[regexp {/([0-9]+)-[^/]+/} $d -> n]} { return [scan $n %d] } else { return 9999 } }
+proc by_step {files} { return [lsort -command {apply {{a b} {expr {[step_no $a] - [step_no $b]}}}} $files] }
+set odbs [glob -nocomplain runs/wokwi/final/odb/*.odb]
+if {![llength $odbs]} {
+    set odbs [by_step [glob -nocomplain runs/wokwi/*/*.odb]]
+    set odbs [list [lindex $odbs end]]
+}
+puts "database: [lindex $odbs 0]"
+read_db [lindex $odbs 0]
 set spef [glob -nocomplain runs/wokwi/final/spef/nom*/*.spef]
-if {[llength $spef]} { read_spef [lindex $spef 0] } else { puts "WARNING: no nom SPEF, wire load only" }
-read_sdc [lindex [glob runs/wokwi/final/sdc/*.sdc] 0]
+if {![llength $spef]} { set spef [by_step [glob -nocomplain runs/wokwi/*-openroad-rcx/nom*/*.spef runs/wokwi/*-openroad-rcx/*.nom*.spef]] }
+if {[llength $spef]} { puts "parasitics: [lindex $spef end]"; read_spef [lindex $spef end] } else { puts "WARNING: no extracted parasitics, wire load only" }
+set sdc [glob -nocomplain runs/wokwi/final/sdc/*.sdc]
+if {![llength $sdc]} { set sdc [by_step [glob -nocomplain runs/wokwi/*/*.sdc]] }
+read_sdc [lindex $sdc end]
 set_propagated_clock [all_clocks]
 
 set macros [get_cells {u_m0 u_m1 u_loc}]

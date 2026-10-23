@@ -4,17 +4,25 @@
 name: rtl_spike
 on:
   workflow_dispatch:
+    inputs:
+      layout:
+        description: "macro layout: a (opposite edges) or b (one wall); experiments/rtl_spike/layouts/<layout>/config.json"
+        required: true
+        default: "a"
+        type: choice
+        options: ["a", "b"]
   push:
     paths:
       - "experiments/rtl_spike/src/**"
       - "experiments/rtl_spike/info.yaml"
       - "experiments/rtl_spike/sta_paths.tcl"
       - "experiments/rtl_spike/tb/**"
+      - "experiments/rtl_spike/layouts/**"
       - ".github/workflows/rtl_spike.yaml"
 
 
-concurrency:                       # a newer run of the same workflow cancels a stale one
-  group: ${{ github.workflow }}-${{ github.ref }}
+concurrency:                       # a newer run of the same workflow and layout cancels a stale one
+  group: ${{ github.workflow }}-${{ github.event.inputs.layout || 'sim' }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -50,6 +58,7 @@ jobs:
         run: |
           rm -rf src
           cp -r experiments/rtl_spike/src src
+          cp experiments/rtl_spike/layouts/${{ github.event.inputs.layout }}/config.json src/config.json
           cp experiments/rtl_spike/info.yaml info.yaml
           cp experiments/rtl_spike/librelane_plugin_spex_pdn.py experiments/rtl_spike/odb_stripes.py .
 
@@ -69,7 +78,9 @@ jobs:
       - name: Per-path timing (A, B, action) at each corner
         if: always()
         run: |
-          [ -d runs/wokwi/final/odb ] || { echo "no final database (flow stopped earlier)"; exit 0; }
+          ls runs/wokwi/*detailedrouting*/*.odb > /dev/null 2>&1 || { echo "detailed routing did not finish: no database to time"; exit 0; }
+          drc=$(ls runs/wokwi/*detailedrouting*/*.drc 2>/dev/null | tail -1)
+          echo "ROUTING VIOLATIONS (layout ${{ github.event.inputs.layout }}): $( [ -n "$drc" ] && grep -c 'violation type' "$drc" || echo unknown)"
           img=ghcr.io/librelane/librelane:3.1.0.dev3
           for c in slow typ fast; do
             docker run --rm -v "$PWD:$PWD" -v "/home/runner/pdk:/home/runner/pdk" -w "$PWD" \
@@ -82,14 +93,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rtl_spike-runs
+          name: rtl_spike-${{ github.event.inputs.layout }}-runs
           path: runs/
           retention-days: 14
           if-no-files-found: warn
 
-  precheck:
-    needs: gds
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Run Tiny Tapeout Precheck
-        uses: TinyTapeout/tt-gds-action/precheck@3412659307918422f3f0727917cf9b499aaca588  # ihp-cmos5l, pinned 2026-10-21

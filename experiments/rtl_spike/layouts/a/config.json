@@ -1,0 +1,167 @@
+{
+  "//": "SPEX RTL timing spike (owner task 2026-10-22): spex_loop between two RM_IHPSG13_1P_64x64 edge macros. Floorplan recipe of experiments/macro_floorplan/fp5 (credits there: Loom, PRISM).",
+  "meta": {
+    "flow": "Classic",
+    "substituting_steps": {
+      "+OpenROAD.GeneratePDN": "Project.ExtendPowerStripes"
+    }
+  },
+  "PL_TARGET_DENSITY_PCT": 45,
+  "CLOCK_PERIOD": 20.8,
+  "OPENROAD_THREADS": 4,
+  "DRT_OPT_ITERS": 15,
+  "DRT_ANTENNA_REPAIR_ITERS": 1,
+  "PL_RESIZER_HOLD_SLACK_MARGIN": 0.1,
+  "GRT_RESIZER_HOLD_SLACK_MARGIN": 0.05,
+  "RUN_LINTER": 1,
+  "LINTER_INCLUDE_PDK_MODELS": 1,
+  "CLOCK_PORT": "clk",
+  "MACROS": {
+    "RM_IHPSG13_1P_64x64_c2_bm_bist": {
+      "instances": {
+        "u_m0": {
+          "location": [
+            464.2,
+            3.78
+          ],
+          "orientation": "FS"
+        },
+        "u_m1": {
+          "location": [
+            464.2,
+            601.02
+          ],
+          "orientation": "N"
+        }
+      },
+      "gds": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/gds/RM_IHPSG13_1P_64x64_c2_bm_bist.gds"
+      ],
+      "lef": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/lef/RM_IHPSG13_1P_64x64_c2_bm_bist.lef"
+      ],
+      "lib": {
+        "nom_typ_1p20V_25C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x64_c2_bm_bist_typ_1p20V_25C.lib"
+        ],
+        "nom_fast_1p32V_m40C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x64_c2_bm_bist_fast_1p32V_m55C.lib"
+        ],
+        "nom_slow_1p08V_125C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x64_c2_bm_bist_slow_1p08V_125C.lib"
+        ]
+      },
+      "nl": [
+        "dir::RM_IHPSG13_1P_64x64_c2_bm_bist.v"
+      ],
+      "spice": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/cdl/RM_IHPSG13_1P_64x64_c2_bm_bist.cdl"
+      ]
+    },
+    "RM_IHPSG13_1P_64x16_c2": {
+      "instances": {
+        "u_loc": {
+          "location": [
+            216.92,
+            3.78
+          ],
+          "orientation": "FS"
+        }
+      },
+      "gds": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/gds/RM_IHPSG13_1P_64x16_c2.gds"
+      ],
+      "lef": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/lef/RM_IHPSG13_1P_64x16_c2.lef"
+      ],
+      "lib": {
+        "nom_typ_1p20V_25C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x16_c2_typ_1p20V_25C.lib"
+        ],
+        "nom_fast_1p32V_m40C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x16_c2_fast_1p32V_m55C.lib"
+        ],
+        "nom_slow_1p08V_125C": [
+          "pdk_dir::libs.ref/sg13cmos5l_sram/lib/RM_IHPSG13_1P_64x16_c2_slow_1p08V_125C.lib"
+        ]
+      },
+      "nl": [
+        "dir::RM_IHPSG13_1P_64x16_c2.v"
+      ],
+      "spice": [
+        "pdk_dir::libs.ref/sg13cmos5l_sram/cdl/RM_IHPSG13_1P_64x16_c2.cdl"
+      ]
+    }
+  },
+  "PDN_MACRO_CONNECTIONS": [
+    "u_m0 VPWR VGND VDD! VSS!",
+    "u_m0 VPWR VGND VDDARRAY! VSS!",
+    "u_m1 VPWR VGND VDD! VSS!",
+    "u_m1 VPWR VGND VDDARRAY! VSS!",
+    "u_loc VPWR VGND VDD! VSS!",
+    "u_loc VPWR VGND VDDARRAY! VSS!"
+  ],
+  "PDN_CFG": "dir::pdn_cfg.tcl",
+  "EXTEND_STRIPES_SRAM_ALL_COLUMNS": false,
+  "EXTEND_STRIPES_SRAM_ARRAY_EVERY_OTHER": true,
+  "FP_MACRO_HORIZONTAL_HALO": 2.0,
+  "FP_MACRO_VERTICAL_HALO": 0.48,
+  "ROUTING_OBSTRUCTIONS": [
+    "Metal2 464.20 3.78 1248.68 65.54",
+    "Metal3 464.20 3.78 1248.68 65.54",
+    "Metal4 464.20 3.78 1248.68 65.54",
+    "Metal2 464.20 603.62 1248.68 665.38",
+    "Metal3 464.20 603.62 1248.68 665.38",
+    "Metal4 464.20 603.62 1248.68 665.38",
+    "Metal2 216.92 3.78 453.72 65.54",
+    "Metal3 216.92 3.78 453.72 65.54",
+    "Metal4 216.92 3.78 453.72 65.54"
+  ],
+  "MAGIC_MACRO_STD_CELL_SOURCE": "PDK",
+  "MAGIC_EXT_ABSTRACT_CELLS": [
+    "RM_IHPSG13_.*"
+  ],
+  "ERROR_ON_MAGIC_DRC": false,
+  "RUN_MAGIC_DRC": 0,
+  "ERROR_ON_ILLEGAL_OVERLAPS": false,
+  "ERROR_ON_PDN_VIOLATIONS": 0,
+  "//2": "Template values below (do not change in the real design without reason).",
+  "RUN_KLAYOUT_XOR": 0,
+  "RUN_KLAYOUT_DRC": 0,
+  "DESIGN_REPAIR_BUFFER_OUTPUT_PORTS": 0,
+  "TOP_MARGIN_MULT": 1,
+  "BOTTOM_MARGIN_MULT": 1,
+  "LEFT_MARGIN_MULT": 6,
+  "RIGHT_MARGIN_MULT": 6,
+  "FP_SIZING": "absolute",
+  "GRT_ALLOW_CONGESTION": false,
+  "FP_IO_HLENGTH": 2,
+  "FP_IO_VLENGTH": 2,
+  "FP_PDN_VPITCH": 44.96,
+  "FP_PDN_VWIDTH": 2.1,
+  "FP_PDN_VSPACING": 3.52,
+  "FP_PDN_VOFFSET": 6.15,
+  "RUN_CTS": 1,
+  "FP_PDN_MULTILAYER": 0,
+  "MAGIC_DEF_LABELS": 0,
+  "MAGIC_WRITE_LEF_PINONLY": 1,
+  "RUN_POST_GRT_DESIGN_REPAIR": true,
+  "RUN_POST_GRT_RESIZER_TIMING": false,
+  "//2spike": "v2 floorplan (2026-10-22): the 64x64 pair faces one 200 um logic channel (A_DOUT along the whole long edge, address at its middle, LEF 2bbec755); location-word macro left of the channel; density 45; post-GRT repair as PRISM.",
+  "FP_OBSTRUCTIONS": [
+    [
+      464.2,
+      665.38,
+      1248.68,
+      706.86
+    ]
+  ],
+  "CTS_OBSTRUCTION_AWARE": true,
+  "DESIGN_REPAIR_MAX_WIRE_LENGTH": 200,
+  "GRT_DESIGN_REPAIR_MAX_WIRE_LENGTH": 200,
+  "//layout": "generated by experiments/rtl_spike/layouts/gen_layouts.py, layout A; do not edit",
+  "RUN_LVS": false,
+  "RUN_MAGIC_STREAMOUT": false,
+  "RUN_MAGIC_WRITE_LEF": false,
+  "RUN_IRDROP_REPORT": false
+}
