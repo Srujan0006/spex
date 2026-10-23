@@ -78,3 +78,10 @@ fast +9.43 ns, hold met.
 
 Iteration 2: `FP_OBSTRUCTIONS` (no placement sites) beyond the macros (x 464.2–1248.68, y < 226.80 and y > 555.76),
 `CTS_OBSTRUCTION_AWARE`, and `DESIGN_REPAIR_MAX_WIRE_LENGTH` / `GRT_DESIGN_REPAIR_MAX_WIRE_LENGTH` = 200 µm.
+
+**v2 iteration 2 (CI 39826276891): 0 max-cap, still not routed.** The 200 µm wire-length buffering cleared every
+max-capacitance violation (0, from 45–48). Detailed routing: 185 after 15 passes, 307 after the antenna re-route
+(Metal4 290 shorts, 15 spacing), then the same LVS-report crash. 278 of 307 lie over the macro interiors, with hot
+spots near the macro ends (x ≈ 500–700 and 1000–1150): cells in the corners (beside the macros but beyond them in y)
+were not blocked, and their nets cut across a macro's end. Iteration 3 blocks placement across the full die width
+outside the band y 226.80–555.76 (the channel, the 64x16 and the side areas stay open, about 0.57 mm²).

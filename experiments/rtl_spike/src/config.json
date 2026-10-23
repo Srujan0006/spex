@@ -150,20 +150,20 @@
   "//2spike": "v2 floorplan (2026-10-22): the 64x64 pair faces one 200 um logic channel (A_DOUT along the whole long edge, address at its middle, LEF 2bbec755); location-word macro left of the channel; density 45; post-GRT repair as PRISM.",
   "FP_OBSTRUCTIONS": [
     [
-      464.2,
+      2.88,
       3.78,
-      1248.68,
+      1721.28,
       226.8
     ],
     [
-      464.2,
+      2.88,
       555.76,
-      1248.68,
+      1721.28,
       706.86
     ]
   ],
   "CTS_OBSTRUCTION_AWARE": true,
   "DESIGN_REPAIR_MAX_WIRE_LENGTH": 200,
   "GRT_DESIGN_REPAIR_MAX_WIRE_LENGTH": 200,
-  "//3spike": "iteration 2 (2026-10-22): run 39812959173 left 241 of 247 violations over the 64x64 interiors (nets of cells placed beyond the macros) and 45 max-cap violations, mostly on the macros' A_DOUT pins. Placement blocked beyond the macros, obstruction-aware CTS, long wires buffered at 200 um."
+  "//3spike": "iteration 2 (2026-10-22): run 39812959173 left 241 of 247 violations over the 64x64 interiors (nets of cells placed beyond the macros) and 45 max-cap violations, mostly on the macros' A_DOUT pins. Placement blocked beyond the macros, obstruction-aware CTS, long wires buffered at 200 um. Iteration 3: placement blocked across the full die width outside the band y 226.80-555.76 (iteration 2: 0 max-cap, but 278 of 307 violations over the macros near their ends, from cells in the corners)."
 }
