@@ -85,3 +85,9 @@ max-capacitance violation (0, from 45–48). Detailed routing: 185 after 15 pass
 spots near the macro ends (x ≈ 500–700 and 1000–1150): cells in the corners (beside the macros but beyond them in y)
 were not blocked, and their nets cut across a macro's end. Iteration 3 blocks placement across the full die width
 outside the band y 226.80–555.76 (the channel, the 64x16 and the side areas stay open, about 0.57 mm²).
+
+**v2 iteration 3 (CI 39882022079): stopped at the 120-min step limit before detailed routing finished.** Step times
+[Measured, job log]: global routing 16 min (6,045 overflowing tiles at 29.8 % usage: the band concentrates the logic),
+post-GRT design repair 42 min (2,392 buffers in 1,502 nets at placement), post-GRT timing repair 41 min, detailed
+routing from 02:53 until the limit at 03:07. Iteration 4: post-GRT timing repair off (timing is not the question until
+it routes), post-GRT design repair kept (max-cap), spike step limit 150 min (job 180).

@@ -39,7 +39,7 @@ jobs:
     needs: sim
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 180
     steps:
       - name: checkout repo
         uses: actions/checkout@v6
@@ -55,7 +55,7 @@ jobs:
 
       - name: Build GDS
         uses: ./.github/actions/harden   # tt-gds-action@3412659 steps without the PNG render
-        timeout-minutes: 120          # fail fast; fail the step, not the job, so the reports below still run
+        timeout-minutes: 150          # fail fast; fail the step, not the job, so the reports below still run
         with:
           librelane-version: 3.1.0.dev3   # the action's default at the pinned commit
 
