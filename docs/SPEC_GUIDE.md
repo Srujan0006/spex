@@ -130,3 +130,19 @@ A silent emit may not reset clocks. A shadow emit must sit next to the other sid
 | time base ... ambiguous | a clock is reset by own emits on one path and by observations on another | reset it on every incoming path from the same kind of event |
 | exceeds the 16-bit clock | a window over 65,535 cycles | counted loop (§4) |
 | more than N windows / constants / actions | table full | share windows (equal bounds share an entry), reuse constants, merge actions |
+
+## 10. Proving a new spec (after §8's tests pass)
+
+1. **Model-check it with TChecker** (`scripts/export_tchecker.py`). Name the spec edges that are protocol events in an
+   `events` map (label → event), write one small observer per property from the protocol's standard (an untimed
+   ordering property, and a timed one with its own clock if the standard gives a bound; take the bound from the
+   standard, not from the spec), and give each a teeth model: a copy of the spec with one planted bug the observer
+   must find (`expected = True`). Mark an `ok` location that must be reachable, so the check cannot pass vacuously.
+   Data is abstracted (shift register, tokens and TX FIFO are free; the bit counter is exact), so properties about
+   byte values belong in the oracle tests, not here. Examples: `uart_*`, `spi_m*`, `i2c_*_nest`, `i2c_*_buf`.
+2. **Translation validation (L1):** add the spec and its roles to `SPECS` in `tests/model/test_decoder.py`. The
+   independent decoder must find the compiled image equal to the compiler's role-expanded graph; it checks the
+   encoding (tables, indices, sharing, nominal slots), not the role transformation, which §8's oracle and duality
+   tests cover.
+3. **Fit:** `python3 -B scripts/table_usage.py` (tables per role) and `python3 -B scripts/location_fit.py` (windows and
+   constants per location) show how close the spec is to the engine's limits.

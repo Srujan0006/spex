@@ -130,3 +130,19 @@ Both: no band obstructions; macro routing obstructions, obstruction-aware CTS an
 Magic stream-out / LEF and the IR-drop report off. `sta_paths.tcl` now times the newest database after detailed
 routing with the newest extracted parasitics, so every run reports per-path slack together with its violation count.
 Stop rule: if neither A nor B routes to 0, stop and report options (a)–(c) with area and latency.
+
+### Options if neither layout routes (prepared 2026-10-23 for the owner's decision)
+
+Macro data [Measured, IHP-Open-PDK 2bbec755 LEF and slow-corner liberty]: 1P_64x64 784.48 × 64.36 µm (50,489 µm²),
+`A_DOUT` spread over 763 µm, clock-to-output 5.04–5.46 ns; 1P_256x32 416.64 × 118.78 µm (49,488 µm²), `A_DOUT` over
+~406 µm, 5.02–5.44 ns; 1P_64x16 236.8 × 64.36 µm (15,240 µm²), 4.88–5.30 ns. The PDK has no 1P_64x32. Window table
+[Measured, `probe_tables.py`]: 75,657 µm² at 6 read ports, 62,702 µm² at 4.
+
+| Option | What changes | Area per engine | Latency | Rules |
+|---|---|---|---|---|
+| **(a)** window ports 6 → 4 | coverage margin from the slot registers (already registered in v2); invariant `{en, clock, hi}` stored in the location word, which grows from 14 to 28 bits: a second 1P_64x16 at the same address | window table −12,955; second 64x16 +15,240; **net ≈ +2.3k µm²** [Estimate from the measurements]; one more macro to place | unchanged (E = 1) | R2.7 is FROZEN (invariant = window index) and R11.6 changes: owner decision |
+| **(b)** edges in 4 × 1P_256x32 | one slot word per macro; 64 of 256 rows used | macros 4 × 49,488 = 197,954 vs 2 × 50,489 = 100,978: **+97.0k µm² (+0.097 mm², ≈ +8 points of the 8x4 core)**; one engine ≈ 0.53 utilisation [Estimate], between fp_one_engine's 0.45 (routes) and fp_asym's 0.65 (does not) | unchanged (E = 1) | R11.8 / S44 storage decision (not FROZEN) |
+| **(c)** E = 2 with 2 × 1P_256x32 | two reads per entry (slots 0–1, then 2–3), address `{loc, half}` | macros 98,977 vs 100,978: **−2.0k µm²** | entry 1 → 2 cycles: minimum dwell per location 3 cycles instead of 2; R4.4 latency +1 cycle when a change lands in an entry cycle; R4.5 bounds lo ≥ 3 / ≥ 5 (were 2 / 4) | FROZEN (R4.2, R4.4, R4.5): owner decision; model, compiler checks and tests change |
+
+(b) and (c) also make a one-wall floorplan natural: four or five 416.64 µm macros fit in one row (x = 3.36, 430.48,
+857.60, 1284.72 on the 11.24 µm grid, the last ending at 1701.36), with every `A_DOUT` pin facing the logic.
