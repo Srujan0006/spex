@@ -194,3 +194,23 @@ at 20.8 ns: **+4.148 ns slow (60.1 MHz), +10.329 ns typical (95.5 MHz)**, +13.89
 the 15-pass cap, all in the open core, 22 in one 50 µm hot spot around (1000, 350) on window-table scan nets, so this
 run is not yet evidence. Area of the spike core with prefetch: 193,892 µm², 2,005 flip-flops (v2: 178,064 µm²,
 1,925): **+15.8k µm²** [Measured, yowasp-yosys 0.70]. Next run: 30 detailed-route passes and placement density 40 %.
+
+## Result: layout A with action prefetch routes and closes 48 MHz with margin (CI 39996024186, 2026-10-23)
+
+30 detailed-route passes, placement density 40 %, utilisation 0.281. **0 routing violations** (first route 31, antenna
+re-route to 0), **0 max-capacitance and 0 max-slew violations** at every corner (only clock-tree leaf buffers exceed
+the max-fanout limit of 8), **hold met at every corner** (slow +0.600, typical +0.283, fast +0.106 ns). The flow's
+final error is the known `CheckDesignAntennaProperties` stop caused by the Magic LEF being off, after STA; LVS was off.
+Post-route setup slack at 20.8 ns [Measured, `sta_paths.tcl` on the routed database with extracted parasitics]:
+
+| Path | slow 1.08 V 125 °C | typical 1.20 V 25 °C | fast 1.32 V −40 °C |
+|---|---|---|---|
+| (A) entry: macro → table reads (incl. action) → slot registers | +8.169 | +12.965 | +15.737 |
+| (B) evaluation: slot registers → guards → priority → next address → macros | **+4.041** | **+10.121** | **+13.707** |
+| action: prefetched action → pin-write registers | +4.712 | +10.618 | +14.099 |
+| overall worst (register to register) | **+4.041** | **+10.121** | +13.707 |
+
+**Fmax: 59.7 MHz at the slow corner, 93.6 MHz typical.** The critical path is now the evaluation loop (B), as
+intended; the firing update no longer limits. Owner targets: typical ≥ 48 MHz with ≥ 2 ns margin — met (+10.1 ns);
+slow-corner ≥ 40 MHz — met (59.7 MHz; 48 MHz closes at the slow corner with +4.0 ns). Remaining caveats: the spike has
+no events, FIFOs, coverage, trace or host port, and LVS was not run.
