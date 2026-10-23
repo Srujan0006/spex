@@ -91,3 +91,21 @@ outside the band y 226.80–555.76 (the channel, the 64x16 and the side areas st
 post-GRT design repair 42 min (2,392 buffers in 1,502 nets at placement), post-GRT timing repair 41 min, detailed
 routing from 02:53 until the limit at 03:07. Iteration 4: post-GRT timing repair off (timing is not the question until
 it routes), post-GRT design repair kept (max-cap), spike step limit 150 min (job 180).
+
+**v2 iteration 4 (CI 39904207436): worse; stopped at the 150-min limit in detailed routing.** Global routing 16 min,
+post-GRT design repair 42 min, detailed routing from 06:15: 46,913 violations after pass 0, 32,438 after pass 1
+(iteration 2: 14,716 after pass 0, 185 after 15 passes). Confining the logic to one band raised congestion more than
+it removed macro crossings.
+
+Routing iterations of v2 so far [Measured, job logs]:
+
+| Run | Change | First route (15 passes) | Final | Max cap |
+|---|---|---|---|---|
+| 39812959173 | facing macros, density 45 % | 123 | 247 (re-route) | 45–48 |
+| 39826276891 | + no placement beyond the macros, obstruction-aware CTS, 200 µm wire buffering | 185 | 307 (re-route) | **0** |
+| 39882022079 | + logic confined to one band across the die | — (time limit in routing) | — | — |
+| 39904207436 | band, post-GRT timing repair off | 32,438 after pass 1 (time limit) | — | — |
+
+In both runs that finished routing, almost all remaining violations were Metal4 shorts over the 64x64 interiors,
+through the routing obstructions: with `GRT_ALLOW_CONGESTION` the global router still plans some nets across the
+macros. Stopped here for the owner's decision.
