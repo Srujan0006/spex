@@ -179,3 +179,10 @@ has no events, FIFOs, coverage, trace or host port; the real engine adds logic, 
 (event emit, coverage strobe, token pop), so A's 0.73 ns slow-corner margin is thin. Prefetching the four slots'
 actions in the entry cycle (4 × 32 = 128 more flip-flops, ≈ +7k µm² [Estimate from the per-table probe]) would take
 the action-table read off that path.
+
+## Layout A adopted, action prefetch (owner, 2026-10-23; DECISIONS S50)
+
+The entry cycle now also loads each slot's 32-bit action (`s_actw[i] <= act[e[10:7]]`), so the firing update selects
+one of four registered actions instead of reading the 16-entry table after the priority. Cost: 4 × 32 = 128 more
+flip-flops and the action table grows from 1 to 4 read ports (it moves onto path (A), which had 8–9 ns of slow-corner
+slack). Testbench passes; planted bug "prefetch reads action 0" makes it fail.

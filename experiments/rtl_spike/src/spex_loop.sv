@@ -7,7 +7,8 @@
 //   EVAL cycle  (path B): slot registers, pins, pending masks, clocks with their history -> pin / clock / data guards
 //                         -> lowest enabled slot (R3.2), or a violation (R6.1, R6.2) -> next location -> macro
 //                         address. No table read and no macro output on this path.
-//   action path:          fired slot -> action table -> pin writes and datapath op -> registers (R2.9, R2.10).
+//   action path:          fired slot -> its prefetched action (read from the action table in the entry cycle)
+//                         -> pin writes and datapath op -> registers (R2.9, R2.10).
 // v = max(x_c - a, 0) (R2.5) is a 3:1 select of x, x_d1, x_d2 by the age (spex/refsim/clock_history.py).
 // Written in a conservative SystemVerilog subset (no return, no casts) so every Yosys front end reads it.
 // SPDX-License-Identifier: Apache-2.0
@@ -87,7 +88,7 @@ module spex_loop (
     logic [XW-1:0] s_te    [0:3];
     logic [2:0]    s_dk    [0:3];
     logic [WK-1:0] s_k     [0:3];
-    logic [3:0]    s_act   [0:3];
+    logic [WACT-1:0] s_actw [0:3];                                         // action prefetched at entry (owner, 2026-10-23)
     logic [2:0]    s_rst   [0:3];
     // location registers, written in the entry cycle (R2.7, R11.6)
     logic [7:0]    l_watch;
@@ -121,7 +122,7 @@ module spex_loop (
                     s_te[i]    <= w[XW-1:0];                       // POLICY fire time, earliest policy (R8.1)
                     s_dk[i]    <= e[16:14];
                     s_k[i]     <= kon[e[13:11]];
-                    s_act[i]   <= e[10:7];
+                    s_actw[i]  <= act[e[10:7]];
                     s_rst[i]   <= e[6:4];
                 end
             end
@@ -183,7 +184,7 @@ module spex_loop (
     assign mem_ren  = start | any | violate;
 
     // ---------------------------------------------------------------- action path (R2.9, R2.10)
-    wire [WACT-1:0] fa = act[s_act[sel]];
+    wire [WACT-1:0] fa = s_actw[sel];                                         // no table read after the priority
     wire [7:0] wm = fa[7:0];
     wire       od = fa[16];
     wire [2:0] dpin = fa[19:17];
