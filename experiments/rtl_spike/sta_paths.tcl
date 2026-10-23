@@ -37,16 +37,22 @@ puts "\n==================== corner $c: (B) slot registers -> guards -> priority
 report_checks -to $macros -path_delay max -fields $fields -digits 3
 puts "\n==================== corner $c: (action) fired slot -> action table -> pin-write registers"
 set drivers {}
-foreach port [get_ports {uio_out[*] uio_oe[*]}] {
-    foreach pin [get_pins -of_objects [get_nets -of_objects $port] -filter "direction == output"] {
-        lappend drivers [get_cells -of_objects $pin]
+if {[catch {
+    foreach port [get_ports {uio_out[*] uio_oe[*]}] {
+        set net [get_nets -quiet [get_full_name $port]]
+        if {$net eq ""} { continue }
+        foreach pin [get_pins -quiet -of_objects $net -filter "direction == output"] {
+            lappend drivers [get_cells -of_objects $pin]
+        }
     }
-}
+} err]} { puts "action path: could not find the pin-write registers: $err" }
 if {[llength $drivers]} {
-    report_checks -to $drivers -path_delay max -fields $fields -digits 3
+    if {[catch {report_checks -to $drivers -path_delay max -fields $fields -digits 3} err]} { puts "action path: $err" }
 } else {
     puts "no pin-write registers found on uio_out / uio_oe"
 }
+puts "\n==================== corner $c: overall worst setup path (any group)"
+report_checks -path_delay max -fields $fields -digits 3
 puts "\n==================== corner $c: summary"
 report_wns
 report_tns

@@ -1,0 +1,41 @@
+# Re-run the spike's per-path timing (experiments/rtl_spike/sta_paths.tcl) on the database a finished rtl_spike run
+# uploaded, without hardening again: about 5 minutes instead of an hour.
+#   gh workflow run spike_sta.yaml -f run_id=<rtl_spike run id> -f layout=a
+name: spike_sta
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "rtl_spike run id"
+        required: true
+      layout:
+        description: "its layout (a or b)"
+        required: true
+
+jobs:
+  sta:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: rtl_spike-${{ inputs.layout }}-runs
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: runs
+      - name: Install the ihp-sg13cmos5l PDK (same revision as the harden)
+        run: PDK_ROOT=/home/runner/pdk ./.github/actions/harden/install_sg13cmos5l.sh
+      - name: Per-path timing (A, B, action, overall) at each corner
+        run: |
+          echo "ROUTING VIOLATIONS: $(grep -c 'violation type' $(ls runs/wokwi/*detailedrouting*/*.drc | tail -1))"
+          for c in slow typ fast; do
+            docker run --rm -v "$PWD:$PWD" -v "/home/runner/pdk:/home/runner/pdk" -w "$PWD" \
+              -e PDK_ROOT=/home/runner/pdk -e CORNER=$c ghcr.io/librelane/librelane:3.1.0.dev3 \
+              openroad -exit -no_splash experiments/rtl_spike/sta_paths.tcl 2>&1 | tee "sta_paths_$c.rpt"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spike-sta-${{ inputs.layout }}-${{ inputs.run_id }}
+          path: sta_paths_*.rpt
