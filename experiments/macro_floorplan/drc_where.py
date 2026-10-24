@@ -1,4 +1,4 @@
-"""Where are a run's detailed-routing violations? (used by .github/workflows/fp_report.yaml)
+"""Where are a run's detailed-routing violations? (was used by the removed fp_report workflow; run it on a downloaded runs/ directory)
 
     python3 drc_where.py RUN_DIR CONFIG_JSON
 

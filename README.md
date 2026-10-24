@@ -28,11 +28,9 @@ spec/                    protocol specs in the SPEX DSL
 spex/                    Python package: dsl/ compiler/ decoder/ refsim/ tchecker/ host/
 tests/                   model/ (pytest on the reference model)   oracles/ (standards-derived, independent)
 src/ test/ info.yaml     Tiny Tapeout harness (imported from ttihp-verilog-template@cmos5l in step 0)
-tb/                      cocotb lockstep: RTL against spex.refsim
-formal/                  SymbiYosys proofs
-experiments/             area_probe/ (Yosys sketches)   macro_floorplan/ (week-1 dummy harden)
-legacy/dtc/              previous PIO-based design, read-only
-scripts/                 setup and check scripts
+experiments/             area_probe/ (Yosys sketches)   macro_floorplan/ (week-1 dummy harden)   rtl_spike/ (critical loop)
+scripts/                 setup, check and export scripts
+.github/workflows/       model, test, tchecker, docs, gds, rtl_spike
 ```
 
 ## Licence

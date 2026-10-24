@@ -2,7 +2,7 @@
 
 - Source: https://github.com/TinyTapeout/ttihp-verilog-template, branch `cmos5l`.
 - Commit: `231f26a58b8d2efbab25bef24b29c94362a431a3` (2026-10-19 12:52 +0200, "fix(test): add sg13cmos5l UDP models to gate-level simulation"). Imported 2026-10-19.
-- Files imported unmodified: `info.yaml`, `src/project.v`, `src/config.json`, `test/{Makefile,README.md,requirements.txt,tb.gtkw,tb.v,test.py}`, `docs/info.md`, `.github/workflows/{docs,gds,test,fpga}.yaml`, `LICENSE` (Apache-2.0, same as ours; the repo had none).
+- Files imported unmodified: `info.yaml`, `src/project.v`, `src/config.json`, `test/{Makefile,README.md,requirements.txt,tb.gtkw,tb.v,test.py}`, `docs/info.md`, `.github/workflows/{docs,gds,test,fpga}.yaml` (`fpga.yaml` removed 2026-10-24: no FPGA target), `LICENSE` (Apache-2.0, same as ours; the repo had none).
 - Not imported on 2026-10-19: the template's `README.md`, `.gitignore`, `.devcontainer/`, `.vscode/`. `.github/workflows/model.yaml` is ours and was kept.
 - **Completed 2026-10-21** (same commit `231f26a`, still the branch head; checked with `git clone -b cmos5l`): `.devcontainer/` and `.vscode/` copied unmodified; the template's `.gitignore` lines appended to ours under a comment. `README.md` stays ours (SPEX description). Every other template file is byte-identical to the template except the edits below [Measured: `cmp` of each template file against the repo].
 
